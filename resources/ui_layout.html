@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            background: transparent;
+            color: #333;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .meeting-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .timer {
+            color: #666;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #eee;
+            border-color: #ccc;
+        }
+
+        .btn-end {
+            background: #da291c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-end:hover {
+            background: #b82318;
+        }
+
+        /* Content Area (transparent for content browser to show through) */
+        .content-area {
+            position: absolute;
+            top: 64px;
+            left: 0;
+            right: 320px;
+            bottom: 0;
+            background: #1d1d1d;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: absolute;
+            top: 64px;
+            right: 0;
+            bottom: 0;
+            width: 320px;
+            background: #ffffff;
+            border-left: 1px solid #e0e0e0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #333;
+            background: #f9f9f9;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .participant-list {
+            padding: 10px;
+        }
+
+        .participant-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+
+        .participant-item:hover {
+            background: #f5f5f5;
+        }
+
+        .participant-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 12px;
+        }
+
+        .participant-info {
+            flex: 1;
+        }
+
+        .participant-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .participant-status {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .participant-icons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .participant-icon {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        .participant-icon.active {
+            opacity: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+            padding: 40px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        /* Chat section */
+        .chat-container {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .chat-input-container {
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        /* Controls */
+        .controls {
+            padding: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid #e0e0e0;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #f5f5f5;
+            border-color: #ccc;
+        }
+
+        .control-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .control-btn.muted {
+            background: #ffebee;
+            border-color: #ffcdd2;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="header-left">
+            <div class="logo">R</div>
+            <div class="meeting-info">
+                <span class="header-title" id="meeting-title">Meeting Room</span>
+                <span class="timer" id="timer">00:00:00</span>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="status-indicator"></div>
+            <span class="status-text">Connected</span>
+        </div>
+        <div class="header-right">
+            <button class="btn-secondary" onclick="copyMeetingLink()">Copy Link</button>
+            <button class="btn-end" onclick="endMeeting()">End Meeting</button>
+        </div>
+    </div>
+
+    <!-- Content Area (meeting site shows through here) -->
+    <div class="content-area"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-tabs">
+            <div class="tab active" onclick="switchTab('participants')">Participants</div>
+            <div class="tab" onclick="switchTab('chat')">Chat</div>
+        </div>
+
+        <div class="sidebar-content">
+            <!-- Participants List -->
+            <div id="participants-tab" class="participant-list">
+                <div class="participant-item">
+                    <div class="participant-avatar">Y</div>
+                    <div class="participant-info">
+                        <div class="participant-name">You (Host)</div>
+                        <div class="participant-status">In this meeting</div>
+                    </div>
+                    <div class="participant-icons">
+                        <span class="participant-icon active">&#127908;</span>
+                        <span class="participant-icon active">&#127909;</span>
+                    </div>
+                </div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">&#128101;</div>
+                    <div>Waiting for others to join...</div>
+                </div>
+            </div>
+
+            <!-- Chat (hidden by default) -->
+            <div id="chat-tab" class="chat-container">
+                <div class="chat-messages">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#128172;</div>
+                        <div>No messages yet</div>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" placeholder="Type a message..." />
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="control-btn" id="btn-mic" title="Toggle Microphone" onclick="toggleMic()">&#127908;</button>
+            <button class="control-btn" id="btn-camera" title="Toggle Camera" onclick="toggleCamera()">&#127909;</button>
+            <button class="control-btn" id="btn-share" title="Share Screen" onclick="shareScreen()">&#128424;</button>
+            <button class="control-btn" id="btn-more" title="More Options" onclick="showMore()">&#8943;</button>
+        </div>
+    </div>
+
+    <script>
+        // Timer functionality
+        let seconds = 0;
+        setInterval(() => {
+            seconds++;
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${h}:${m}:${s}`;
+        }, 1000);
+
+        // Tab switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('participants-tab').style.display =
+                tabName === 'participants' ? 'block' : 'none';
+            document.getElementById('chat-tab').style.display =
+                tabName === 'chat' ? 'flex' : 'none';
+        }
+
+        // Control states
+        let micEnabled = true;
+        let cameraEnabled = true;
+
+        function toggleMic() {
+            micEnabled = !micEnabled;
+            const btn = document.getElementById('btn-mic');
+            btn.classList.toggle('muted', !micEnabled);
+        }
+
+        function toggleCamera() {
+            cameraEnabled = !cameraEnabled;
+            const btn = document.getElementById('btn-camera');
+            btn.classList.toggle('muted', !cameraEnabled);
+        }
+
+        function shareScreen() {
+            const btn = document.getElementById('btn-share');
+            btn.classList.toggle('active');
+        }
+
+        function showMore() {
+            // Show more options menu
+            console.log('More options');
+        }
+
+        function copyMeetingLink() {
+            // Copy meeting link to clipboard
+            console.log('Copy link');
+        }
+
+        function endMeeting() {
+            if (window.rebrazeAuth && window.rebrazeAuth.leaveMeeting) {
+                window.rebrazeAuth.leaveMeeting();
+            } else {
+                console.log('End meeting');
+            }
+        }
+
+        // Update meeting title from URL parameter if available
+        const urlParams = new URLSearchParams(window.location.search);
+        const title = urlParams.get('title');
+        if (title) {
+            document.getElementById('meeting-title').textContent = title;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+# Build outputs
+build/
+cmake-build-*/
+out/
+dist/
+Release/
+Debug/
+
+# Dependencies
+node_modules/
+third_party/
+cef_binary*/
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+
+# Environment files
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+
+# Video files (usually large assets)
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+
+# Coverage
+coverage/
+
+# Misc
+*.bak
+*.tmp
+*.temp
