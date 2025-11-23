@@ -5,6 +5,16 @@ set -e
 
 echo "Building Rebraze for macOS..."
 
+# Check if Ninja is installed
+if ! command -v ninja &> /dev/null; then
+    echo "Error: Ninja is not installed."
+    echo "Please install Ninja using Homebrew:"
+    echo "  brew install ninja"
+    echo ""
+    echo "Or download it from: https://ninja-build.org/"
+    exit 1
+fi
+
 # Check if CEF is downloaded
 if [ ! -d "third_party/cef_binary" ]; then
     echo "CEF not found. Downloading..."
@@ -25,15 +35,15 @@ mkdir -p build
 cd build
 
 # Run CMake
-echo "Running CMake..."
-cmake -DCMAKE_BUILD_TYPE=Release -G "Xcode" ..
+echo "Running CMake with Ninja generator..."
+cmake -DCMAKE_BUILD_TYPE=Release -G "Ninja" ..
 
 # Build
-echo "Building C++ application..."
-xcodebuild -project Rebraze.xcodeproj -configuration Release
+echo "Building C++ application with Ninja..."
+ninja
 
 echo ""
 echo "Build complete!"
-echo "Application bundle: build/Release/Rebraze.app"
+echo "Application bundle: build/Rebraze.app"
 echo ""
-echo "To run: open build/Release/Rebraze.app"
+echo "To run: open build/Rebraze.app"
