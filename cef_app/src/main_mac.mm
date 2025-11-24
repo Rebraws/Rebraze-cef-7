@@ -7,6 +7,19 @@
 
 #include "include/cef_browser.h"
 
+// CRITICAL FIX: Patch NSApplication to handle the isHandlingSendEvent selector
+// This selector is expected by CEF but missing in the standard NSApplication on some macOS versions/configurations,
+// leading to a crash when closing browsers or handling certain events.
+@interface NSApplication (RebrazeFix)
+- (BOOL)isHandlingSendEvent;
+@end
+
+@implementation NSApplication (RebrazeFix)
+- (BOOL)isHandlingSendEvent {
+    return NO;
+}
+@end
+
 void ClientHandler::PlatformTitleChange(CefRefPtr<CefBrowser> browser,
                                        const CefString& title) {
   NSView* view = CAST_CEF_WINDOW_HANDLE_TO_NSVIEW(
@@ -47,4 +60,28 @@ void ClientHandler::PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, i
   
   [view setFrame:NSMakeRect(x, cocoaY, width, height)];
   [view setNeedsDisplay:YES];
+}
+
+void ClientHandler::PlatformShowMeetingView(CefRefPtr<CefBrowser> browser) {
+  NSView* view = CAST_CEF_WINDOW_HANDLE_TO_NSVIEW(browser->GetHost()->GetWindowHandle());
+  if (view) {
+    [view setHidden:NO];
+  }
+}
+
+void ClientHandler::PlatformHideMeetingView(CefRefPtr<CefBrowser> browser) {
+  NSView* view = CAST_CEF_WINDOW_HANDLE_TO_NSVIEW(browser->GetHost()->GetWindowHandle());
+  if (view) {
+    [view setHidden:YES];
+  }
+}
+
+void ClientHandler::PlatformCloseMeetingView(CefRefPtr<CefBrowser> browser) {
+  NSView* view = CAST_CEF_WINDOW_HANDLE_TO_NSVIEW(browser->GetHost()->GetWindowHandle());
+  if (view) {
+    // Just hide it to be visually instant. 
+    // Don't remove from superview manually; let CloseBrowser handle destruction.
+    // Manual removal might interfere with CEF's internal cleanup.
+    [view setHidden:YES];
+  }
 }

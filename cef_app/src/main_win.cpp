@@ -27,3 +27,23 @@ void ClientHandler::PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, i
     SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE);
   }
 }
+
+void ClientHandler::PlatformShowMeetingView(CefRefPtr<CefBrowser> browser) {
+  HWND hwnd = browser->GetHost()->GetWindowHandle();
+  if (hwnd) {
+    ShowWindow(hwnd, SW_SHOW);
+    // Ensure it's on top
+    SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+  }
+}
+
+void ClientHandler::PlatformHideMeetingView(CefRefPtr<CefBrowser> browser) {
+  HWND hwnd = browser->GetHost()->GetWindowHandle();
+  if (hwnd) {
+    ShowWindow(hwnd, SW_HIDE);
+  }
+}
+
+void ClientHandler::PlatformCloseMeetingView(CefRefPtr<CefBrowser> browser) {
+  // No special handling needed on Windows
+}

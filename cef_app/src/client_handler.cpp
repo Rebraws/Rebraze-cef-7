@@ -206,16 +206,41 @@ bool ClientHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser,
 void ClientHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
   CEF_REQUIRE_UI_THREAD();
 
-  // Check if this is the UI browser
+  // Check if this is the UI browser - if so, quit immediately
   if (ui_browser_ && ui_browser_->IsSame(browser)) {
-    std::cout << "[Browser] UI browser closed" << std::endl;
+    std::cout << "[Browser] UI browser closed - quitting application" << std::endl;
     ui_browser_ = nullptr;
+
+    // Remove from the list of existing browsers
+    BrowserList::iterator bit = browser_list_.begin();
+    for (; bit != browser_list_.end(); ++bit) {
+      if ((*bit)->IsSame(browser)) {
+        browser_list_.erase(bit);
+        break;
+      }
+    }
+
+    // UI browser is closing, quit the application
+    CefQuitMessageLoop();
+    return;
   }
 
-  // Check if this is the content browser
+  // Check if this is the content browser - don't quit, just clean up
   if (content_browser_ && content_browser_->IsSame(browser)) {
-    std::cout << "[Browser] Content browser closed" << std::endl;
+    std::cout << "[Browser] Content browser closed - returning to dashboard" << std::endl;
     content_browser_ = nullptr;
+
+    // Remove from the list of existing browsers
+    BrowserList::iterator bit = browser_list_.begin();
+    for (; bit != browser_list_.end(); ++bit) {
+      if ((*bit)->IsSame(browser)) {
+        browser_list_.erase(bit);
+        break;
+      }
+    }
+
+    // Don't quit - let the UI browser (dashboard) remain open
+    return;
   }
 
   // Remove from the list of existing browsers
@@ -227,8 +252,9 @@ void ClientHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
     }
   }
 
-  if (browser_list_.empty()) {
-    // All browser windows have closed. Quit the application message loop
+  // Fallback: only quit if all browsers are truly gone
+  if (browser_list_.empty() && !ui_browser_ && !content_browser_) {
+    std::cout << "[Browser] All browsers closed - quitting application" << std::endl;
     CefQuitMessageLoop();
   }
 }
@@ -287,7 +313,7 @@ void ClientHandler::OnTitleChange(CefRefPtr<CefBrowser> browser,
 
   if (use_views_) {
     // Set the title of the window using the Views framework
-    CefRefPtr<CefBrowserView> browser_view =
+    CefRefPtr<CefBrowserView> browser_view = 
         CefBrowserView::GetForBrowser(browser);
     if (browser_view) {
       CefRefPtr<CefWindow> window = browser_view->GetWindow();
@@ -353,7 +379,7 @@ CefResourceRequestHandler::ReturnValue ClientHandler::OnBeforeResourceLoad(
 
   // Add additional headers that real browsers send
   setHeader("Accept",
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif," 
       "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
 
   setHeader("Accept-Language", "en-US,en;q=0.9");
@@ -635,10 +661,21 @@ void ClientHandler::CreateMeetingView(const std::string& url, int x, int y, int 
 
   std::cout << "[Browser] CreateMeetingView called" << std::endl;
 
-  // If content browser already exists, just navigate to the new URL
+  // If content browser already exists, reuse it
   if (content_browser_) {
     std::cout << "[Browser] Navigating existing content browser to: " << url << std::endl;
     NavigateContentBrowser(url);
+    
+    // Ensure it is visible and bounds are updated
+    PlatformShowMeetingView(content_browser_);
+    PlatformUpdateMeetingBounds(content_browser_, x, y, width, height);
+    
+    // Update tracked bounds
+    last_meeting_x_ = x;
+    last_meeting_y_ = y;
+    last_meeting_width_ = width;
+    last_meeting_height_ = height;
+    
     return;
   }
 
@@ -701,6 +738,12 @@ void ClientHandler::CreateMeetingView(const std::string& url, int x, int y, int 
 
   // Create the content browser
   CefBrowserHost::CreateBrowser(window_info, this, url, browser_settings, nullptr, nullptr);
+  
+  // Initialize bounds tracking
+  last_meeting_x_ = x;
+  last_meeting_y_ = y;
+  last_meeting_width_ = width;
+  last_meeting_height_ = height;
 
   std::cout << "[Browser] Content browser creation initiated" << std::endl;
 }
@@ -794,24 +837,7 @@ void ClientHandler::ShowMeetingView() {
   }
 
   std::cout << "[Browser] Showing content browser" << std::endl;
-
-#if defined(OS_WIN)
-  HWND hwnd = content_browser_->GetHost()->GetWindowHandle();
-  if (hwnd) {
-    ShowWindow(hwnd, SW_SHOW);
-    // Ensure it's on top
-    SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-  }
-#elif defined(OS_LINUX)
-  Window window = content_browser_->GetHost()->GetWindowHandle();
-  Display* display = cef_get_xdisplay();
-  if (window != kNullWindowHandle && display) {
-    XMapWindow(display, window);
-    XRaiseWindow(display, window);
-    XFlush(display);
-  }
-#endif
-  // Linux and macOS: Browser is visible by default
+  PlatformShowMeetingView(content_browser_);
 }
 
 void ClientHandler::HideMeetingView() {
@@ -823,21 +849,7 @@ void ClientHandler::HideMeetingView() {
   }
 
   std::cout << "[Browser] Hiding content browser" << std::endl;
-
-#if defined(OS_WIN)
-  HWND hwnd = content_browser_->GetHost()->GetWindowHandle();
-  if (hwnd) {
-    ShowWindow(hwnd, SW_HIDE);
-  }
-#elif defined(OS_LINUX)
-  Window window = content_browser_->GetHost()->GetWindowHandle();
-  Display* display = cef_get_xdisplay();
-  if (window != kNullWindowHandle && display) {
-    XUnmapWindow(display, window);
-    XFlush(display);
-  }
-#endif
-  // Linux and macOS: Implement as needed
+  PlatformHideMeetingView(content_browser_);
 }
 
 void ClientHandler::DestroyMeetingView() {
@@ -850,9 +862,25 @@ void ClientHandler::DestroyMeetingView() {
 
   std::cout << "[Browser] Destroying content browser" << std::endl;
 
+#if defined(OS_MACOSX)
+  // On macOS, destroying the child view can be problematic and lead to app termination
+  // or crashes if not handled perfectly.
+  // Instead, we simply hide the view and navigate to about:blank to release resources.
+  // The browser instance is kept alive and reused for the next meeting.
+  
+  PlatformHideMeetingView(content_browser_);
+  NavigateContentBrowser("about:blank");
+  std::cout << "[Browser] Hidden content browser (reusing instance)" << std::endl;
+#else
+  // On other platforms, close the browser normally
+  
+  // Platform-specific cleanup
+  PlatformCloseMeetingView(content_browser_);
+
   // Close the browser
   content_browser_->GetHost()->CloseBrowser(true);
   // Note: content_browser_ will be set to nullptr in OnBeforeClose
+#endif
 }
 
 void ClientHandler::UpdateMeetingViewBounds(int x, int y, int width, int height) {

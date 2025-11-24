@@ -48,3 +48,26 @@ void ClientHandler::PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, i
     XFlush(display);
   }
 }
+
+void ClientHandler::PlatformShowMeetingView(CefRefPtr<CefBrowser> browser) {
+  Window window = browser->GetHost()->GetWindowHandle();
+  Display* display = cef_get_xdisplay();
+  if (window != kNullWindowHandle && display) {
+    XMapWindow(display, window);
+    XRaiseWindow(display, window);
+    XFlush(display);
+  }
+}
+
+void ClientHandler::PlatformHideMeetingView(CefRefPtr<CefBrowser> browser) {
+  Window window = browser->GetHost()->GetWindowHandle();
+  Display* display = cef_get_xdisplay();
+  if (window != kNullWindowHandle && display) {
+    XUnmapWindow(display, window);
+    XFlush(display);
+  }
+}
+
+void ClientHandler::PlatformCloseMeetingView(CefRefPtr<CefBrowser> browser) {
+  // No special handling needed on Linux
+}

@@ -42,7 +42,11 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
   // Ref to track last bounds to avoid redundant updates
   const lastBoundsRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
 
+  // Ref to track if we have already initiated leaving the meeting to prevent race conditions
+  const meetingLeftRef = useRef(false);
+
   const updateBoundsIfNeeded = () => {
+    if (meetingLeftRef.current) return;
     if (!contentAreaRef.current) return;
     
     const rect = contentAreaRef.current.getBoundingClientRect();
@@ -106,6 +110,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
 
     // Request page info and sync bounds periodically to keep it updated/visible
     const interval = setInterval(() => {
+      if (meetingLeftRef.current) return;
       getMeetingPageInfo();
       updateBoundsIfNeeded();
     }, 3000);
@@ -162,7 +167,9 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
 
     // Use ResizeObserver to handle all size changes (window resize, sidebar toggle, etc.)
     const resizeObserver = new ResizeObserver(() => {
-      updateBoundsIfNeeded();
+      if (!meetingLeftRef.current) {
+        updateBoundsIfNeeded();
+      }
     });
 
     if (contentAreaRef.current) {
@@ -173,7 +180,9 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
     return () => {
       clearTimeout(timer);
       resizeObserver.disconnect();
-      leaveMeeting();
+      if (!meetingLeftRef.current) {
+        leaveMeeting();
+      }
       console.log('[Meeting] Native meeting view cleaned up');
     };
   }, [currentMeeting.meetingUrl]);
@@ -281,6 +290,9 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
   };
 
   const handleEndMeeting = () => {
+    if (meetingLeftRef.current) return;
+    meetingLeftRef.current = true;
+
     // Leave the native meeting view first if in CEF
     if (isCEF()) {
       leaveMeeting();
@@ -329,9 +341,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               {/* Mic Toggle */}
               <button
                 onClick={() => setIsMicOn(!isMicOn)}
-                className={`p-3 rounded-xl transition-all ${
-                  isMicOn ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'
-                }`}
+                className={`p-3 rounded-xl transition-all ${isMicOn ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                 title={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
               >
                 {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
@@ -340,9 +350,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               {/* Camera Toggle */}
               <button
                 onClick={() => setIsCameraOn(!isCameraOn)}
-                className={`p-3 rounded-xl transition-all ${
-                  isCameraOn ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'
-                }`}
+                className={`p-3 rounded-xl transition-all ${isCameraOn ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                 title={isCameraOn ? "Turn Off Camera" : "Turn On Camera"}
               >
                 {isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}
@@ -353,9 +361,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               {/* Pause Button */}
               <button
                 onClick={() => setIsPaused(!isPaused)}
-                className={`p-3 rounded-xl transition-all flex items-center gap-2 ${
-                  isPaused ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`p-3 rounded-xl transition-all flex items-center gap-2 ${isPaused ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 title={isPaused ? "Resume Meeting" : "Pause Meeting"}
               >
                 {isPaused ? <Play size={20} /> : <Pause size={20} />}
@@ -364,11 +370,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               {/* Record Button */}
               <button
                 onClick={() => setIsRecording(!isRecording)}
-                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all ${
-                  isRecording 
-                    ? 'bg-red-50 text-red-600 border border-red-100' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all ${isRecording ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {isRecording ? (
                   <>
@@ -388,11 +390,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               {/* AI Toggle Button (only visible when closed, or always valid toggle) */}
                <button
                 onClick={() => setIsAiOpen(!isAiOpen)}
-                className={`p-3 rounded-xl transition-all ${
-                  isAiOpen 
-                    ? 'bg-orange-100 text-orange-600' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`p-3 rounded-xl transition-all ${isAiOpen ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 title={isAiOpen ? "Close AI Assistant" : "Open AI Assistant"}
               >
                 <Sparkles size={20} />
@@ -463,11 +461,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
                 </div>
               )}
               <div
-                className={`max-w-[85%] p-3 text-sm leading-relaxed shadow-sm ${
-                  msg.sender === 'user'
-                    ? 'bg-[#222] text-white rounded-2xl rounded-tr-sm'
-                    : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-sm'
-                }`}
+                className={`max-w-[85%] p-3 text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-[#222] text-white rounded-2xl rounded-tr-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-sm'}`}
               >
                 {msg.isLoading ? (
                   <div className="flex items-center gap-1">
@@ -513,11 +507,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
             <button
               onClick={handleSendMessage}
               disabled={!chatInput.trim() || isAiTyping}
-              className={`p-2 rounded-xl transition-all ${
-                chatInput.trim() && !isAiTyping
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              className={`p-2 rounded-xl transition-all ${chatInput.trim() && !isAiTyping ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             >
               <Send size={14} />
             </button>

@@ -15,15 +15,36 @@ npm run build
 
 echo ""
 echo "[2/3] Copying to CEF app..."
-cd "$PROJECT_DIR/build"
 
-# Run make to trigger the copy_frontend target
-# This will only copy files, not rebuild C++ code (unless it changed)
-make copy_frontend
+# Detect platform
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS - copy directly to app bundle
+    DEST_DIR="$PROJECT_DIR/build/Release/Rebraze.app/Contents/Resources/frontend"
+    mkdir -p "$DEST_DIR"
+    cp -r "$PROJECT_DIR/frontend/dist/"* "$DEST_DIR/"
+    echo "  Copied to: $DEST_DIR"
+else
+    # Linux/Windows - use the copy_frontend target
+    cd "$PROJECT_DIR/build"
+    if command -v ninja &> /dev/null && [ -f build.ninja ]; then
+        ninja copy_frontend
+    else
+        make copy_frontend
+    fi
+fi
 
 echo ""
 echo "[3/3] Verification..."
-DEST_FILE="$PROJECT_DIR/build/Release/resources/frontend/index.html"
+
+# Detect platform for verification
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    DEST_FILE="$PROJECT_DIR/build/Release/Rebraze.app/Contents/Resources/frontend/index.html"
+    RUN_CMD="open $PROJECT_DIR/build/Release/Rebraze.app"
+else
+    DEST_FILE="$PROJECT_DIR/build/Release/resources/frontend/index.html"
+    RUN_CMD="cd $PROJECT_DIR/build/Release && ./Rebraze"
+fi
+
 if [ -f "$DEST_FILE" ]; then
     echo "✓ Frontend files copied successfully"
     echo "  Modified: $(stat -c %y "$DEST_FILE" 2>/dev/null || stat -f %Sm "$DEST_FILE" 2>/dev/null)"
@@ -38,6 +59,5 @@ echo "✓ Frontend updated!"
 echo "======================================"
 echo ""
 echo "You can now run the app:"
-echo "  cd $PROJECT_DIR/build/Release"
-echo "  ./Rebraze"
+echo "  $RUN_CMD"
 echo ""

@@ -160,6 +160,11 @@ class ClientHandler : public CefClient,
   // Platform-specific meeting bounds update
   void PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, int x, int y, int width, int height);
 
+  // Platform-specific visibility control
+  void PlatformShowMeetingView(CefRefPtr<CefBrowser> browser);
+  void PlatformHideMeetingView(CefRefPtr<CefBrowser> browser);
+  void PlatformCloseMeetingView(CefRefPtr<CefBrowser> browser);
+
   // Open URL in system browser
   void OpenSystemBrowser(const std::string& url);
 
