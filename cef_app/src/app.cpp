@@ -187,23 +187,44 @@ void App::OnContextInitialized() {
   bool server_started = g_oauth_server->Start(OAUTH_PORT, [](const std::string& token) {
     // Marshal to UI thread to safely access CefBrowser and send process message
     CefPostTask(TID_UI, base::BindOnce([](const std::string& token) {
-      std::cout << "OAuth token received: " << token << std::endl;
+      std::cout << "[App] OAuth token received: " << token.substr(0, 20) << "..." << std::endl;
 
       // Send token to browser process
       ClientHandler* handler = ClientHandler::GetInstance();
+      std::cout << "[App] ClientHandler instance: " << (handler ? "OK" : "NULL") << std::endl;
+
       if (handler) {
         CefRefPtr<CefBrowser> browser = handler->GetBrowser();
+        std::cout << "[App] Browser: " << (browser ? "OK" : "NULL") << std::endl;
+
         if (browser) {
-          // Create process message
-          CefRefPtr<CefProcessMessage> message =
-              CefProcessMessage::Create("auth_token_received");
+          std::cout << "[App] Browser ID: " << browser->GetIdentifier() << std::endl;
 
-          CefRefPtr<CefListValue> args = message->GetArgumentList();
-          args->SetString(0, token);
+          CefRefPtr<CefFrame> mainFrame = browser->GetMainFrame();
+          std::cout << "[App] Main frame: " << (mainFrame ? "OK" : "NULL") << std::endl;
 
-          // Send to renderer process
-          browser->GetMainFrame()->SendProcessMessage(PID_RENDERER, message);
+          if (mainFrame) {
+            std::cout << "[App] Frame URL: " << mainFrame->GetURL().ToString() << std::endl;
+
+            // Create process message
+            CefRefPtr<CefProcessMessage> message =
+                CefProcessMessage::Create("auth_token_received");
+
+            CefRefPtr<CefListValue> args = message->GetArgumentList();
+            args->SetString(0, token);
+
+            // Send to renderer process
+            std::cout << "[App] Sending auth_token_received message to renderer..." << std::endl;
+            mainFrame->SendProcessMessage(PID_RENDERER, message);
+            std::cout << "[App] ✓ Message sent to renderer!" << std::endl;
+          } else {
+            std::cerr << "[App] ERROR: Main frame is NULL!" << std::endl;
+          }
+        } else {
+          std::cerr << "[App] ERROR: Browser is NULL!" << std::endl;
         }
+      } else {
+        std::cerr << "[App] ERROR: ClientHandler is NULL!" << std::endl;
       }
     }, token));
   });
@@ -230,7 +251,24 @@ void App::OnContextInitialized() {
     // Default URL - load the built React app
     CefString app_path;
     if (CefGetPath(PK_DIR_EXE, app_path)) {
+#if defined(__APPLE__)
+      // On macOS, the executable is in Contents/MacOS, but resources are in Contents/Resources
+      // We need to go up one level from the executable directory
+      std::string path_str = app_path.ToString();
+      // Remove trailing slash if present
+      if (!path_str.empty() && path_str.back() == '/') {
+        path_str.pop_back();
+      }
+      // Remove the last component (MacOS)
+      size_t last_slash = path_str.find_last_of('/');
+      if (last_slash != std::string::npos) {
+        path_str = path_str.substr(0, last_slash);
+      }
+      url = "file://" + path_str + "/Resources/frontend/index.html";
+      std::cout << "[App] MacOS detected. Constructed URL: " << url << std::endl;
+#else
       url = "file://" + app_path.ToString() + "/resources/frontend/index.html";
+#endif
     } else {
       // Fallback to a default path if CefGetPath fails
       url = "file://resources/frontend/index.html";

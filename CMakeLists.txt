@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Determine the platform
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
   set(CEF_PLATFORM "macosx64")
+  set(OS_MACOSX 1)
+  set(CEF_USE_SANDBOX OFF CACHE BOOL "Enable CEF sandbox" FORCE)
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   if(CMAKE_SIZEOF_VOID_P MATCHES 8)
     set(CEF_PLATFORM "linux64")
@@ -84,6 +86,11 @@ elseif(OS_MACOSX)
   # macOS helper app sources
   set(REBRAZE_HELPER_SRCS
     cef_app/src/process_helper_mac.cpp
+    cef_app/src/app.cpp
+    cef_app/src/client_handler.cpp
+    cef_app/src/message_handler.cpp
+    cef_app/src/oauth_server.cpp
+    cef_app/src/main_mac.mm
   )
 elseif(OS_WINDOWS)
   list(APPEND REBRAZE_SRCS
@@ -132,6 +139,10 @@ if(OS_MACOSX)
   # Create the multiple Helper app bundle targets
   set(CEF_HELPER_TARGET "Rebraze_Helper")
   set(CEF_HELPER_OUTPUT_NAME "Rebraze Helper")
+
+  if(NOT CEF_HELPER_APP_SUFFIXES)
+    set(CEF_HELPER_APP_SUFFIXES ":::")
+  endif()
 
   foreach(_suffix_list ${CEF_HELPER_APP_SUFFIXES})
     # Convert to a list and extract the suffix values

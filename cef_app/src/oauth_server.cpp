@@ -36,18 +36,23 @@ OAuthServer::~OAuthServer() {
 
 bool OAuthServer::Start(int port, TokenCallback callback) {
   if (running_) {
+    std::cerr << "[OAuth] Server already running" << std::endl;
     return false;
   }
 
   port_ = port;
   token_callback_ = callback;
 
+  std::cout << "[OAuth] Creating socket..." << std::endl;
+
   // Create socket
   server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket_ == INVALID_SOCKET) {
-    std::cerr << "Failed to create socket" << std::endl;
+    std::cerr << "[OAuth] Failed to create socket" << std::endl;
     return false;
   }
+
+  std::cout << "[OAuth] Socket created successfully" << std::endl;
 
   // Allow port reuse
   int opt = 1;
@@ -60,25 +65,32 @@ bool OAuthServer::Start(int port, TokenCallback callback) {
   address.sin_addr.s_addr = INADDR_ANY;
   address.sin_port = htons(port_);
 
+  std::cout << "[OAuth] Binding to port " << port << "..." << std::endl;
+
   if (bind(server_socket_, (struct sockaddr*)&address, sizeof(address)) == SOCKET_ERROR) {
-    std::cerr << "Failed to bind to port " << port << std::endl;
+    std::cerr << "[OAuth] Failed to bind to port " << port << std::endl;
     closesocket(server_socket_);
     server_socket_ = INVALID_SOCKET;
     return false;
   }
 
+  std::cout << "[OAuth] Bound successfully to port " << port << std::endl;
+
   // Listen for connections
   if (listen(server_socket_, 1) == SOCKET_ERROR) {
-    std::cerr << "Failed to listen on socket" << std::endl;
+    std::cerr << "[OAuth] Failed to listen on socket" << std::endl;
     closesocket(server_socket_);
     server_socket_ = INVALID_SOCKET;
     return false;
   }
+
+  std::cout << "[OAuth] Listening for connections on port " << port << std::endl;
 
   running_ = true;
   server_thread_ = std::thread(&OAuthServer::ServerThread, this);
 
-  std::cout << "OAuth callback server started on port " << port << std::endl;
+  std::cout << "[OAuth] ✓ OAuth callback server started successfully!" << std::endl;
+  std::cout << "[OAuth] ✓ Waiting for callback at http://localhost:" << port << "/callback?token=..." << std::endl;
   return true;
 }
 
@@ -102,9 +114,13 @@ void OAuthServer::Stop() {
 }
 
 void OAuthServer::ServerThread() {
+  std::cout << "[OAuth] Server thread started, waiting for connections..." << std::endl;
+
   while (running_) {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
+
+    std::cout << "[OAuth] Waiting for incoming connection..." << std::endl;
 
     int client_socket = accept(server_socket_,
                                (struct sockaddr*)&client_addr,
@@ -112,36 +128,52 @@ void OAuthServer::ServerThread() {
 
     if (client_socket == INVALID_SOCKET) {
       if (running_) {
-        std::cerr << "Failed to accept connection" << std::endl;
+        std::cerr << "[OAuth] Failed to accept connection" << std::endl;
       }
       continue;
     }
+
+    std::cout << "[OAuth] ✓ Connection received from client!" << std::endl;
 
     // Read request
     char buffer[4096] = {0};
     int bytes_read = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
 
+    std::cout << "[OAuth] Received " << bytes_read << " bytes" << std::endl;
+
     if (bytes_read > 0) {
       std::string request(buffer, bytes_read);
+      std::cout << "[OAuth] Request: " << request.substr(0, 200) << "..." << std::endl;
+
       std::string response = HandleRequest(request);
 
       // Send response
+      std::cout << "[OAuth] Sending response (" << response.length() << " bytes)" << std::endl;
       send(client_socket, response.c_str(), response.length(), 0);
     }
 
     closesocket(client_socket);
+    std::cout << "[OAuth] Connection closed" << std::endl;
   }
+
+  std::cout << "[OAuth] Server thread stopped" << std::endl;
 }
 
 std::string OAuthServer::HandleRequest(const std::string& request) {
-  std::cout << "Received OAuth callback request" << std::endl;
+  std::cout << "[OAuth] Processing OAuth callback request..." << std::endl;
 
   // Extract token from request
   std::string token = ExtractToken(request);
 
+  std::cout << "[OAuth] Extracted token: " << (token.empty() ? "(empty)" : token.substr(0, 20) + "...") << std::endl;
+
   if (!token.empty() && token_callback_) {
+    std::cout << "[OAuth] ✓ Token received! Calling callback..." << std::endl;
+
     // Call the callback with the token
     token_callback_(token);
+
+    std::cout << "[OAuth] ✓ Callback executed successfully" << std::endl;
 
     // Return success page
     std::string body =

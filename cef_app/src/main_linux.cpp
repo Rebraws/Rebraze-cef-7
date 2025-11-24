@@ -29,3 +29,22 @@ void ClientHandler::PlatformTitleChange(CefRefPtr<CefBrowser> browser,
   XChangeProperty(display, window, name_atom, utf8_atom, 8, PropModeReplace,
                   (unsigned char*)titleStr.c_str(), titleStr.size());
 }
+
+void ClientHandler::PlatformOpenURL(const std::string& url) {
+  std::string command = "xdg-open \"" + url + "\" &";
+  int result = system(command.c_str());
+  if (result != 0) {
+    LOG(WARNING) << "Failed to open URL: " << url << " (exit code: " << result << ")";
+  }
+}
+
+void ClientHandler::PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, int x, int y, int width, int height) {
+  Window window = browser->GetHost()->GetWindowHandle();
+  Display* display = cef_get_xdisplay();
+  
+  if (window != kNullWindowHandle && display) {
+    XMoveResizeWindow(display, window, x, y, width, height);
+    XRaiseWindow(display, window);
+    XFlush(display);
+  }
+}

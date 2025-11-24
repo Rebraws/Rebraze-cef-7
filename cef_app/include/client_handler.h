@@ -154,6 +154,12 @@ class ClientHandler : public CefClient,
   void PlatformTitleChange(CefRefPtr<CefBrowser> browser,
                            const CefString& title);
 
+  // Platform-specific URL opener
+  void PlatformOpenURL(const std::string& url);
+
+  // Platform-specific meeting bounds update
+  void PlatformUpdateMeetingBounds(CefRefPtr<CefBrowser> browser, int x, int y, int width, int height);
+
   // Open URL in system browser
   void OpenSystemBrowser(const std::string& url);
 

@@ -298,15 +298,32 @@ bool RenderProcessHandler::OnProcessMessageReceived(
 
   if (message_name == "auth_token_received") {
     // Token received from OAuth callback
+    std::cout << "[Renderer] ✓ Received auth_token_received message!" << std::endl;
+
     // Execute JavaScript callback
     CefRefPtr<CefListValue> args = message->GetArgumentList();
     std::string token = args->GetString(0);
 
-    // Call JavaScript function if it exists
-    std::string js_code = "if (window.onAuthTokenReceived) { window.onAuthTokenReceived('" +
-                         token + "'); }";
+    std::cout << "[Renderer] Token: " << token.substr(0, 20) << "..." << std::endl;
+    std::cout << "[Renderer] Frame URL: " << frame->GetURL().ToString() << std::endl;
+
+    // Call JavaScript function if it exists - with console logging
+    std::string js_code =
+        "console.log('[CEF] Received auth token:', '" + token.substr(0, 20) + "...');"
+        "if (window.onAuthTokenReceived) {"
+        "  console.log('[CEF] Calling window.onAuthTokenReceived');"
+        "  window.onAuthTokenReceived('" + token + "');"
+        "  console.log('[CEF] window.onAuthTokenReceived called successfully');"
+        "} else {"
+        "  console.error('[CEF] window.onAuthTokenReceived is not defined!');"
+        "}";
+
+    std::cout << "[Renderer] Executing JavaScript to call window.onAuthTokenReceived" << std::endl;
 
     frame->ExecuteJavaScript(js_code, frame->GetURL(), 0);
+
+    std::cout << "[Renderer] JavaScript executed" << std::endl;
+
     return true;
   }
 

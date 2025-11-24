@@ -9,8 +9,20 @@
 #include "include/cef_sandbox_win.h"
 #endif
 
+#if defined(OS_MACOSX)
+#include "include/wrapper/cef_library_loader.h"
+#endif
+
 // Entry point function for all processes
 int main(int argc, char* argv[]) {
+#if defined(OS_MACOSX)
+  // Load the CEF framework library at runtime instead of linking directly
+  // as required by the macOS app bundle structure.
+  CefScopedLibraryLoader library_loader;
+  if (!library_loader.LoadInMain())
+    return 1;
+#endif
+
   // Provide CEF with command-line arguments
   CefMainArgs main_args(argc, argv);
 
@@ -44,8 +56,8 @@ int main(int argc, char* argv[]) {
   // Set resources directory path (locales, resources, etc.)
   // CefString(&settings.resources_dir_path).FromASCII("");
 
-  // Remote debugging disabled - Google detects open debugging ports and blocks login
-  // settings.remote_debugging_port = 9222;
+  // Enable remote debugging for OAuth debugging
+  settings.remote_debugging_port = 9222;
 
   // SimpleApp implements application-level callbacks for the browser process
   // It will create the first browser instance in OnContextInitialized() after

@@ -183,10 +183,20 @@ bool ClientHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser,
                                    bool* no_javascript_access) {
   CEF_REQUIRE_UI_THREAD();
 
-  std::cout << "[Browser] OnBeforePopup: " << target_url.ToString() << std::endl;
+  std::string url = target_url.ToString();
+  std::cout << "[Browser] OnBeforePopup: " << url << std::endl;
 
-  // Redirect popup to current frame instead of opening a new window
-  // This handles Google Login popups by loading them in the current browser
+  // For Google Login or other external auth flows, open in system default browser
+  if (url.find("accounts.google.com") != std::string::npos ||
+      url.find("google.com/accounts") != std::string::npos ||
+      url.find("oauth") != std::string::npos) {
+    
+    std::cout << "[Browser] Detected auth popup, opening in system browser: " << url << std::endl;
+    OpenSystemBrowser(url);
+    return true; // Cancel internal popup
+  }
+
+  // Redirect other popups to current frame instead of opening a new window
   frame->LoadURL(target_url);
 
   // Return true to cancel the popup creation (we handled it by redirecting)
@@ -297,6 +307,20 @@ bool ClientHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
                                    bool is_redirect) {
   CEF_REQUIRE_UI_THREAD();
 
+  std::string url = request->GetURL().ToString();
+
+  // For Google Login or other external auth flows, open in system default browser
+  // This catches navigations that don't trigger OnBeforePopup
+  if (url.find("accounts.google.com") != std::string::npos ||
+      url.find("google.com/accounts") != std::string::npos ||
+      url.find("/oauth") != std::string::npos ||
+      url.find("/auth") != std::string::npos) {
+
+    std::cout << "[Browser] Detected auth navigation, opening in system browser: " << url << std::endl;
+    OpenSystemBrowser(url);
+    return true; // Cancel internal navigation
+  }
+
   // Allow navigation by default
   return false;
 }
@@ -308,8 +332,44 @@ CefResourceRequestHandler::ReturnValue ClientHandler::OnBeforeResourceLoad(
     CefRefPtr<CefCallback> callback) {
   CEF_REQUIRE_IO_THREAD();
 
-  // Continue with the request without modifying headers
-  // Header injection removed as it was causing 400 errors
+  // Get the current headers
+  CefRequest::HeaderMap headers;
+  request->GetHeaderMap(headers);
+
+  // Helper lambda to set or update a header value
+  auto setHeader = [&headers](const std::string& key, const std::string& value) {
+    // Remove existing entries with this key
+    auto range = headers.equal_range(key);
+    headers.erase(range.first, range.second);
+    // Insert the new value
+    headers.insert(std::make_pair(key, value));
+  };
+
+  // Set a realistic User-Agent to prevent blocking by Google Meet, Teams, etc.
+  // This mimics a real Chrome browser on Windows
+  setHeader("User-Agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+  // Add additional headers that real browsers send
+  setHeader("Accept",
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+      "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+
+  setHeader("Accept-Language", "en-US,en;q=0.9");
+
+  setHeader("Accept-Encoding", "gzip, deflate, br");
+
+  // Indicate we want to upgrade insecure requests
+  setHeader("Upgrade-Insecure-Requests", "1");
+
+  // Set DNT (Do Not Track) header
+  setHeader("DNT", "1");
+
+  // Apply the modified headers back to the request
+  request->SetHeaderMap(headers);
+
+  // Continue with the request
   return RV_CONTINUE;
 }
 
@@ -565,22 +625,8 @@ bool ClientHandler::OnProcessMessageReceived(
 }
 
 void ClientHandler::OpenSystemBrowser(const std::string& url) {
-  std::cout << "[Browser] OpenSystemBrowser called" << std::endl;
-
-#if defined(OS_WIN)
-  std::cout << "[Browser] Using ShellExecuteA (Windows)" << std::endl;
-  ShellExecuteA(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#elif defined(OS_MACOSX)
-  std::cout << "[Browser] Using 'open' command (macOS)" << std::endl;
-  std::string command = "open \"" + url + "\"";
-  system(command.c_str());
-#elif defined(OS_LINUX)
-  std::cout << "[Browser] Using 'xdg-open' command (Linux)" << std::endl;
-  std::string command = "xdg-open \"" + url + "\" &";
-  int result = system(command.c_str());
-  std::cout << "[Browser] xdg-open result: " << result << std::endl;
-#endif
-
+  std::cout << "[Browser] OpenSystemBrowser called for URL: " << url << std::endl;
+  PlatformOpenURL(url);
   std::cout << "[Browser] System browser command executed" << std::endl;
 }
 
@@ -628,11 +674,24 @@ void ClientHandler::CreateMeetingView(const std::string& url, int x, int y, int 
   window_info.bounds.width = width;
   window_info.bounds.height = height;
 #elif defined(OS_MACOSX)
-  // On macOS, set bounds
-  window_info.bounds.x = x;
-  window_info.bounds.y = y;
-  window_info.bounds.width = width;
-  window_info.bounds.height = height;
+  // On macOS, create as a child view of the main browser view.
+  // This ensures the meeting window is attached to the main window.
+  CefWindowHandle parent_handle = kNullWindowHandle;
+
+  if (!browser_list_.empty()) {
+    // Use the first browser (UI browser) as the parent
+    parent_handle = browser_list_.front()->GetHost()->GetWindowHandle();
+  }
+
+  if (parent_handle != kNullWindowHandle) {
+    std::cout << "[Browser] Setting parent view for content browser: " << parent_handle << std::endl;
+    window_info.SetAsChild(parent_handle, CefRect(x, y, width, height));
+  } else {
+    window_info.bounds.x = x;
+    window_info.bounds.y = y;
+    window_info.bounds.width = width;
+    window_info.bounds.height = height;
+  }
 #endif
 
   // Browser settings for content view
@@ -804,37 +863,19 @@ void ClientHandler::UpdateMeetingViewBounds(int x, int y, int width, int height)
     return;
   }
 
-  std::cout << "[Browser] Updating content browser bounds" << std::endl;
+  // Only update if bounds changed
+  if (x != last_meeting_x_ || y != last_meeting_y_ || 
+      width != last_meeting_width_ || height != last_meeting_height_) {
+    
+    std::cout << "[Browser] Updating meeting bounds: " << x << "," << y << " " << width << "x" << height << std::endl;
 
-#if defined(OS_WIN)
-  HWND hwnd = content_browser_->GetHost()->GetWindowHandle();
-  if (hwnd) {
-    // Content browser stays on TOP (above UI browser)
-    SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE);
+    PlatformUpdateMeetingBounds(content_browser_, x, y, width, height);
+    
+    last_meeting_x_ = x;
+    last_meeting_y_ = y;
+    last_meeting_width_ = width;
+    last_meeting_height_ = height;
   }
-#elif defined(OS_LINUX)
-  // Update bounds on Linux
-  Window window = content_browser_->GetHost()->GetWindowHandle();
-  Display* display = cef_get_xdisplay();
-  if (window != kNullWindowHandle && display) {
-    // Only move/resize if bounds changed to reduce flickering
-    if (x != last_meeting_x_ || y != last_meeting_y_ || 
-        width != last_meeting_width_ || height != last_meeting_height_) {
-      
-      XMoveResizeWindow(display, window, x, y, width, height);
-      
-      last_meeting_x_ = x;
-      last_meeting_y_ = y;
-      last_meeting_width_ = width;
-      last_meeting_height_ = height;
-
-      // Only raise when we actually move/resize
-      XRaiseWindow(display, window);
-      XFlush(display);
-    }
-  }
-#endif
-  // Linux and macOS: Implement as needed
 }
 
 // Note: PlatformTitleChange is implemented in platform-specific files:
