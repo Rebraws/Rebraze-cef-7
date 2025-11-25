@@ -149,6 +149,11 @@ void ClientHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   if (!ui_browser_ && !content_browser_) {
     ui_browser_ = browser;
     std::cout << "[Browser] Identified as UI browser (fallback): " << browser->GetIdentifier() << std::endl;
+
+#if defined(OS_MACOSX)
+    // On macOS, customize the window for a unified titlebar look
+    PlatformCustomizeWindow(browser);
+#endif
   }
 
   browser_list_.push_back(browser);
@@ -186,12 +191,11 @@ bool ClientHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser,
   std::string url = target_url.ToString();
   std::cout << "[Browser] OnBeforePopup: " << url << std::endl;
 
-  // For Google Login or other external auth flows, open in system default browser
+  // Only redirect Google account pages to external browser as a safety net
   if (url.find("accounts.google.com") != std::string::npos ||
-      url.find("google.com/accounts") != std::string::npos ||
-      url.find("oauth") != std::string::npos) {
-    
-    std::cout << "[Browser] Detected auth popup, opening in system browser: " << url << std::endl;
+      url.find("google.com/accounts") != std::string::npos) {
+
+    std::cout << "[Browser] Detected Google account popup, opening in system browser: " << url << std::endl;
     OpenSystemBrowser(url);
     return true; // Cancel internal popup
   }
@@ -335,14 +339,12 @@ bool ClientHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
 
   std::string url = request->GetURL().ToString();
 
-  // For Google Login or other external auth flows, open in system default browser
-  // This catches navigations that don't trigger OnBeforePopup
+  // Only redirect Google account pages to external browser as a safety net
+  // (The main OAuth flow is already handled via explicit openSystemBrowser() call from frontend)
   if (url.find("accounts.google.com") != std::string::npos ||
-      url.find("google.com/accounts") != std::string::npos ||
-      url.find("/oauth") != std::string::npos ||
-      url.find("/auth") != std::string::npos) {
+      url.find("google.com/accounts") != std::string::npos) {
 
-    std::cout << "[Browser] Detected auth navigation, opening in system browser: " << url << std::endl;
+    std::cout << "[Browser] Detected Google account page, opening in system browser: " << url << std::endl;
     OpenSystemBrowser(url);
     return true; // Cancel internal navigation
   }

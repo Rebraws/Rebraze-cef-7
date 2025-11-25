@@ -474,8 +474,7 @@ void App::OnContextInitialized() {
     CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings,
                                   nullptr, nullptr);
 #elif defined(OS_MACOSX)
-    // macOS: For now, use existing single-browser approach
-    // Full dual-browser support can be added later
+    // macOS: Use single-browser approach with native window styling
     CefWindowInfo window_info;
     window_info.bounds.x = 0;
     window_info.bounds.y = 0;
@@ -487,6 +486,7 @@ void App::OnContextInitialized() {
 
     std::cout << "[App] Creating main browser (macOS)" << std::endl;
 
+    // Create the browser - window customization will happen in OnAfterCreated
     CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings,
                                   nullptr, nullptr);
 #endif

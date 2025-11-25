@@ -154,6 +154,9 @@ class ClientHandler : public CefClient,
   void PlatformTitleChange(CefRefPtr<CefBrowser> browser,
                            const CefString& title);
 
+  // Platform-specific window customization (macOS unified titlebar)
+  void PlatformCustomizeWindow(CefRefPtr<CefBrowser> browser);
+
   // Platform-specific URL opener
   void PlatformOpenURL(const std::string& url);
 

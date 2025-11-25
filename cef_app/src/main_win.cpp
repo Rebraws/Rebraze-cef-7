@@ -47,3 +47,8 @@ void ClientHandler::PlatformHideMeetingView(CefRefPtr<CefBrowser> browser) {
 void ClientHandler::PlatformCloseMeetingView(CefRefPtr<CefBrowser> browser) {
   // No special handling needed on Windows
 }
+
+void ClientHandler::PlatformCustomizeWindow(CefRefPtr<CefBrowser> browser) {
+  // No window customization needed on Windows
+  // Windows uses standard window decorations
+}

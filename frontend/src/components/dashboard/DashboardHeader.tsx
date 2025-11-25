@@ -38,7 +38,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ isAiOpen, setIsAiOpen
   }, [profileMenuRef]);
 
   return (
-    <header className="px-8 py-4 sticky top-0 z-40 flex items-center justify-between bg-[#FDFBF7]/90 backdrop-blur-xl border-b border-transparent hover:border-gray-100 transition-colors">
+    <header className="px-8 py-4 pl-20 sticky top-0 z-40 flex items-center justify-between bg-[#FDFBF7]/90 backdrop-blur-xl border-b border-transparent hover:border-gray-100 transition-colors">
       <div className="flex items-center gap-3 min-w-[160px]">
         <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl flex items-center justify-center text-white shadow-lg">
           <span className="font-bold text-xl italic font-serif tracking-tight">R</span>

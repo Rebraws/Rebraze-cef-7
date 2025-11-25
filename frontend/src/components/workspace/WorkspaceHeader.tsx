@@ -62,7 +62,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   };
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white/90 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 z-20">
+    <header className="h-16 border-b border-gray-200 bg-white/90 backdrop-blur-sm flex items-center justify-between px-4 pl-20 shrink-0 z-20">
       {/* Left: Navigation & Sidebar Toggle */}
       <div className="flex items-center gap-2 min-w-[200px]">
         <button 

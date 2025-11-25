@@ -30,6 +30,31 @@ void ClientHandler::PlatformTitleChange(CefRefPtr<CefBrowser> browser,
   [window setTitle:str];
 }
 
+void ClientHandler::PlatformCustomizeWindow(CefRefPtr<CefBrowser> browser) {
+  NSView* view = CAST_CEF_WINDOW_HANDLE_TO_NSVIEW(
+      browser->GetHost()->GetWindowHandle());
+  NSWindow* window = [view window];
+
+  if (!window) {
+    NSLog(@"Failed to get window for customization");
+    return;
+  }
+
+  // Enable full-size content view (content extends under titlebar)
+  [window setStyleMask:[window styleMask] | NSWindowStyleMaskFullSizeContentView];
+
+  // Make titlebar transparent so our React UI shows through
+  [window setTitlebarAppearsTransparent:YES];
+
+  // Hide the title text (we'll show our own in the React UI)
+  [window setTitleVisibility:NSWindowTitleHidden];
+
+  // Keep the traffic light buttons visible and in standard position
+  // They will appear over our content in the top-left corner
+
+  NSLog(@"macOS window customized with unified titlebar");
+}
+
 void ClientHandler::PlatformOpenURL(const std::string& url) {
   // Use the 'open' command for maximum compatibility and reliability
   // This works across all macOS versions and properly opens URLs in the default browser
