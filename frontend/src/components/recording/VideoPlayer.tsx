@@ -4,41 +4,38 @@ import { Meeting } from '../../types';
 
 interface VideoPlayerProps {
   meeting: Meeting;
-  isChatOpen: boolean;
+  className?: string;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ meeting, isChatOpen }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ meeting, className = '' }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   return (
     <div
-      className={`flex-1 flex flex-col bg-gray-900 overflow-hidden transition-all duration-300 ${
-        isChatOpen ? 'mr-0' : ''
-      }`}
+      className={`relative bg-gray-950 rounded-2xl overflow-hidden shadow-lg border border-gray-800 flex items-center justify-center group ${className}`}
     >
-      <div className="flex-1 flex items-center justify-center p-8">
         {meeting.recordingUrl ? (
           <video
             ref={videoRef}
-            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            className="w-full h-full object-contain"
             controls
             autoPlay={false}
+            playsInline
           >
             <source src={`file://${meeting.recordingUrl}`} type="video/webm" />
             Your browser does not support the video tag.
           </video>
         ) : (
-          <div className="text-center text-white">
-            <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Video size={40} className="text-gray-500" />
+          <div className="text-center text-white p-8">
+            <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-gray-700/50">
+              <Video size={32} className="text-gray-500" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">No Recording Available</h3>
-            <p className="text-gray-400 max-w-md">
-              This meeting was not recorded or the recording is no longer available.
+            <h3 className="text-lg font-bold mb-1">No Recording</h3>
+            <p className="text-gray-400 text-sm max-w-xs mx-auto">
+              Recording not available.
             </p>
           </div>
         )}
-      </div>
     </div>
   );
 };

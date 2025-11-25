@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PanelLeftClose, PanelLeftOpen, ChevronLeft, Share2, LogOut, Sparkles, User, Settings } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, ChevronLeft, Share2, LogOut, Sparkles, User, Settings, Video, FileText, Presentation, BrainCircuit } from 'lucide-react';
 import { Meeting } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -12,6 +12,8 @@ interface MeetingHeaderProps {
   setExplorerMode: (mode: 'sidebar' | 'maximized') => void;
   isChatOpen: boolean;
   setIsChatOpen: (open: boolean) => void;
+  activeTab: 'video' | 'notes' | 'slides' | 'mindmap';
+  setActiveTab: (tab: 'video' | 'notes' | 'slides' | 'mindmap') => void;
 }
 
 const MeetingHeader: React.FC<MeetingHeaderProps> = ({
@@ -22,7 +24,9 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
   explorerMode,
   setExplorerMode,
   isChatOpen,
-  setIsChatOpen
+  setIsChatOpen,
+  activeTab,
+  setActiveTab
 }) => {
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -57,36 +61,67 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
     }
   };
 
+  const tabs = [
+    { id: 'video', label: 'Recording', icon: Video },
+    { id: 'notes', label: 'Notes', icon: FileText },
+    { id: 'slides', label: 'Slides', icon: Presentation },
+    { id: 'mindmap', label: 'Mind Map', icon: BrainCircuit },
+  ] as const;
+
   return (
     <header className="h-16 border-b border-gray-200 bg-white/90 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 z-40">
-      {/* Left: Navigation & Sidebar Toggle */}
-      <div className="flex items-center gap-2 min-w-[200px]">
-        <button 
-          onClick={handleToggleClick}
-          className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
-          title={isExplorerOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-        >
-          {isExplorerOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-        </button>
-        
-        <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block"></div>
-        
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors group">
-           <div className="p-1.5 rounded-md group-hover:bg-gray-100">
-             <ChevronLeft size={18} />
-           </div>
-           <span className="text-sm font-medium hidden md:block">Dashboard</span>
-        </button>
+      {/* Left: Navigation & Title */}
+      <div className="flex items-center gap-4 min-w-[300px]">
+        <div className="flex items-center gap-2">
+            <button 
+              onClick={handleToggleClick}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+              title={isExplorerOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+              {isExplorerOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+            </button>
+            
+            <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block"></div>
+            
+            <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors group">
+               <div className="p-1.5 rounded-md group-hover:bg-gray-100">
+                 <ChevronLeft size={18} />
+               </div>
+            </button>
+        </div>
+
+        <div className="flex items-center gap-2 opacity-100 transition-opacity overflow-hidden">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getPlatformColor()}`} />
+            <h1 className="text-sm font-bold text-gray-800 tracking-tight truncate">{meeting.title}</h1>
+        </div>
       </div>
 
-      {/* Center: Meeting Title */}
-      <div className="flex-1 flex justify-center px-4">
-           <div className="flex items-center gap-2 opacity-100 transition-opacity">
-              <div className={`w-2.5 h-2.5 rounded-full ${getPlatformColor()}`} />
-              <h1 className="text-base font-bold text-gray-800 tracking-tight truncate max-w-[300px] md:max-w-lg">{meeting.title}</h1>
-              <span className="text-gray-300 mx-2">/</span>
-              <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Recording</span>
-           </div>
+      {/* Center: Tabs */}
+      <div className="flex-1 flex justify-center h-full items-end px-4">
+        {explorerMode !== 'maximized' && (
+          <div className="flex items-center space-x-1 h-full animate-in fade-in zoom-in-95 duration-300">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    relative group flex items-center gap-2 px-4 h-[calc(100%-12px)] text-sm font-medium transition-colors rounded-lg my-1.5
+                    ${isActive ? 'text-gray-900 bg-gray-100/80' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}
+                  `}
+                >
+                  <Icon size={16} className={isActive ? 'text-orange-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                  <span>{tab.label}</span>
+                  {isActive && (
+                     <div className="absolute bottom-[-6px] left-0 right-0 h-[3px] bg-gradient-to-r from-orange-400 to-pink-500 rounded-t-full mx-2" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Right: Actions & Profile */}

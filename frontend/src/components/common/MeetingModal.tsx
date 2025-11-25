@@ -54,8 +54,8 @@ const MeetingModal: React.FC<MeetingModalProps> = ({ isOpen, onClose, onJoinMeet
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200 ease-out">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -86,6 +86,7 @@ const MeetingModal: React.FC<MeetingModalProps> = ({ isOpen, onClose, onJoinMeet
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Team Standup"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              autoFocus
             />
           </div>
 

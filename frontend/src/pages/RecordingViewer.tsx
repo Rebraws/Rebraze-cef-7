@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Meeting as MeetingType, ChatMessage } from '../types';
 import MeetingHeader from '../components/recording/MeetingHeader';
 import MeetingExplorer from '../components/recording/MeetingExplorer';
-import VideoPlayer from '../components/recording/VideoPlayer';
+import MeetingWorkspace from '../components/recording/MeetingWorkspace';
 import ChatInterface from '../components/workspace/ChatInterface';
 import { generateChatResponse } from '../services/geminiService';
 import { meetingService } from '../services/meetingService';
@@ -20,6 +20,7 @@ const RecordingViewer: React.FC<RecordingViewerProps> = ({ meeting: initialMeeti
   const [isExplorerOpen, setExplorerOpen] = useState(true);
   const [explorerMode, setExplorerMode] = useState<'sidebar' | 'maximized'>('sidebar');
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'video' | 'notes' | 'slides' | 'mindmap'>('video');
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -116,6 +117,8 @@ const RecordingViewer: React.FC<RecordingViewerProps> = ({ meeting: initialMeeti
         setExplorerMode={handleSetExplorerMode}
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -157,9 +160,9 @@ const RecordingViewer: React.FC<RecordingViewerProps> = ({ meeting: initialMeeti
                 />
 
                 <main className="flex-1 flex flex-col md:flex-row relative bg-[#FDFBF7] overflow-hidden">
-                    <VideoPlayer
+                    <MeetingWorkspace
                         meeting={currentMeeting}
-                        isChatOpen={isChatOpen}
+                        activeTab={activeTab}
                     />
                     {isChatOpen && (
                         <div className="w-full md:w-[400px] border-l border-gray-200 bg-white h-full flex flex-col">

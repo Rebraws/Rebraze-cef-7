@@ -33,6 +33,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
   const [viewingFile, setViewingFile] = useState<FileItem | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'files' | 'board' | 'overview'>('files');
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: '1', sender: 'ai', text: `Hello! I've loaded the context for ${project.title}. How can I help you today?`, timestamp: new Date() }
   ]);
@@ -153,66 +154,98 @@ const Workspace: React.FC<WorkspaceProps> = ({
         setViewingFile={setViewingFile}
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
-        {explorerMode === 'maximized' ? (
-           <>
-              <div className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isChatOpen ? 'mr-[420px]' : 'mr-0'}`}>
-                 <FileSystemExplorer
-                   project={project}
-                   isOpen={true}
-                   setIsOpen={setExplorerOpen}
-                   mode="maximized"
-                   setMode={handleSetExplorerMode}
-                   selectedFileIds={selectedFileIds}
-                   toggleFileSelection={toggleFileSelection}
-                   viewingFile={viewingFile}
-                   setViewingFile={setViewingFile}
-                   onMoveItem={handleMoveItem}
-                   onDeleteItem={handleDeleteItem}
-                   onRenameItem={handleRenameItem}
-                 />
-              </div>
-              {isChatOpen && (
-                 <div className="fixed top-16 right-0 bottom-0 w-[420px] bg-[#FDFBF7] border-l border-gray-100 shadow-2xl z-30 animate-in slide-in-from-right duration-500">
-                     <ChatInterface
-                        messages={messages}
-                        handleSend={handleSend}
-                        selectedFileCount={selectedFileIds.size}
-                        isAiTyping={isAiTyping}
-                        onClose={() => setIsChatOpen(false)}
+        {activeTab === 'files' ? (
+            explorerMode === 'maximized' ? (
+               <>
+                  <div className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isChatOpen ? 'mr-[420px]' : 'mr-0'}`}>
+                     <FileSystemExplorer
+                       project={project}
+                       isOpen={true}
+                       setIsOpen={setExplorerOpen}
+                       mode="maximized"
+                       setMode={handleSetExplorerMode}
+                       selectedFileIds={selectedFileIds}
+                       toggleFileSelection={toggleFileSelection}
+                       viewingFile={viewingFile}
+                       setViewingFile={setViewingFile}
+                       onMoveItem={handleMoveItem}
+                       onDeleteItem={handleDeleteItem}
+                       onRenameItem={handleRenameItem}
                      />
-                 </div>
-              )}
-           </>
-        ) : (
-           <>
-              <FileSystemExplorer
-                project={project}
-                isOpen={isExplorerOpen}
-                setIsOpen={setExplorerOpen}
-                mode="sidebar"
-                setMode={handleSetExplorerMode}
-                selectedFileIds={selectedFileIds}
-                toggleFileSelection={toggleFileSelection}
-                viewingFile={viewingFile}
-                setViewingFile={setViewingFile}
-                onMoveItem={handleMoveItem}
-                onDeleteItem={handleDeleteItem}
-                onRenameItem={handleRenameItem}
-              />
-
-              {(viewingFile || isChatOpen) && (
-                <main className="flex-1 flex flex-col md:flex-row relative bg-[#FDFBF7] overflow-hidden">
-                  {viewingFile && (
-                    <FileViewer
-                      viewingFile={viewingFile}
-                      isChatOpen={isChatOpen}
-                    />
-                  )}
+                  </div>
                   {isChatOpen && (
-                     <div className={`border-l border-gray-200 bg-white h-full flex flex-col ${viewingFile ? 'w-full md:w-[400px]' : 'flex-1'}`}>
+                     <div className="fixed top-16 right-0 bottom-0 w-[420px] bg-[#FDFBF7] border-l border-gray-100 shadow-2xl z-30 animate-in slide-in-from-right duration-500">
+                         <ChatInterface
+                            messages={messages}
+                            handleSend={handleSend}
+                            selectedFileCount={selectedFileIds.size}
+                            isAiTyping={isAiTyping}
+                            onClose={() => setIsChatOpen(false)}
+                         />
+                     </div>
+                  )}
+               </>
+            ) : (
+               <>
+                  <FileSystemExplorer
+                    project={project}
+                    isOpen={isExplorerOpen}
+                    setIsOpen={setExplorerOpen}
+                    mode="sidebar"
+                    setMode={handleSetExplorerMode}
+                    selectedFileIds={selectedFileIds}
+                    toggleFileSelection={toggleFileSelection}
+                    viewingFile={viewingFile}
+                    setViewingFile={setViewingFile}
+                    onMoveItem={handleMoveItem}
+                    onDeleteItem={handleDeleteItem}
+                    onRenameItem={handleRenameItem}
+                  />
+
+                  {(viewingFile || isChatOpen) && (
+                    <main className="flex-1 flex flex-col md:flex-row relative bg-[#FDFBF7] overflow-hidden">
+                      {viewingFile ? (
+                        <FileViewer
+                          viewingFile={viewingFile}
+                          isChatOpen={isChatOpen}
+                        />
+                      ) : (
+                         // Placeholder for when no file is selected but we are in 'files' tab
+                         <div className="flex-1 flex items-center justify-center text-gray-400">
+                            Select a file to view
+                         </div>
+                      )}
+                      {isChatOpen && (
+                         <div className={`border-l border-gray-200 bg-white h-full flex flex-col ${viewingFile ? 'w-full md:w-[400px]' : 'flex-1'}`}>
+                            <ChatInterface
+                              messages={messages}
+                              handleSend={handleSend}
+                              selectedFileCount={selectedFileIds.size}
+                              isAiTyping={isAiTyping}
+                              onClose={() => setIsChatOpen(false)}
+                            />
+                         </div>
+                      )}
+                    </main>
+                  )}
+               </>
+            )
+        ) : (
+            // Placeholder for other tabs
+            <div className="flex-1 flex relative">
+                <div className="flex-1 flex items-center justify-center bg-white">
+                    <div className="text-center">
+                         <h2 className="text-2xl font-bold text-gray-300 mb-2 capitalize">{activeTab} View</h2>
+                         <p className="text-gray-400">Coming soon...</p>
+                    </div>
+                </div>
+                {isChatOpen && (
+                     <div className="w-[400px] border-l border-gray-200 bg-white h-full flex flex-col">
                         <ChatInterface
                           messages={messages}
                           handleSend={handleSend}
@@ -221,10 +254,8 @@ const Workspace: React.FC<WorkspaceProps> = ({
                           onClose={() => setIsChatOpen(false)}
                         />
                      </div>
-                  )}
-                </main>
-              )}
-           </>
+                )}
+            </div>
         )}
       </div>
     </div>
