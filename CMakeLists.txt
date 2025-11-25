@@ -42,6 +42,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CEF_ROOT}/cmake")
 # Load CEF configuration
 find_package(CEF REQUIRED)
 
+# Force Sandbox OFF for macOS to allow file system access
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+  set(CEF_USE_SANDBOX OFF)
+endif()
+
 # Include CEF cmake macros
 include(${CEF_ROOT}/cmake/cef_macros.cmake)
 
@@ -64,6 +69,7 @@ set(REBRAZE_SRCS
   cef_app/src/client_handler.cpp
   cef_app/src/message_handler.cpp
   cef_app/src/oauth_server.cpp
+  cef_app/src/utils.cpp
 )
 
 # Header files
@@ -72,6 +78,7 @@ set(REBRAZE_HEADERS
   cef_app/include/client_handler.h
   cef_app/include/message_handler.h
   cef_app/include/oauth_server.h
+  cef_app/include/utils.h
 )
 
 # Platform-specific sources
@@ -91,6 +98,7 @@ elseif(OS_MACOSX)
     cef_app/src/message_handler.cpp
     cef_app/src/oauth_server.cpp
     cef_app/src/main_mac.mm
+    cef_app/src/utils.cpp
   )
 elseif(OS_WINDOWS)
   list(APPEND REBRAZE_SRCS

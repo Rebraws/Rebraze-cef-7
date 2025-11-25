@@ -1,8 +1,11 @@
 #include "client_handler.h"
+#include "utils.h"
 
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <cerrno>
+#include <cstring>
 
 #include "include/base/cef_callback.h"
 #include "include/cef_app.h"
@@ -689,11 +692,29 @@ bool ClientHandler::OnProcessMessageReceived(
 
     if (!recording_file_.is_open()) {
       // Create recordings directory
-      std::string recordings_dir = "recordings";
+      std::string docs_dir = GetDocumentsDirectory();
+      std::cout << "[Browser] Documents directory: " << docs_dir << std::endl;
+      
+      std::string recordings_dir;
+
       #ifdef _WIN32
-        _mkdir(recordings_dir.c_str());
+        std::string app_dir = docs_dir + "\\Rebraze";
+        recordings_dir = app_dir + "\\Recordings";
+        if (_mkdir(app_dir.c_str()) != 0 && errno != EEXIST) {
+             std::cerr << "[Browser] Failed to create app dir: " << app_dir << " Error: " << strerror(errno) << std::endl;
+        }
+        if (_mkdir(recordings_dir.c_str()) != 0 && errno != EEXIST) {
+             std::cerr << "[Browser] Failed to create recordings dir: " << recordings_dir << " Error: " << strerror(errno) << std::endl;
+        }
       #else
-        mkdir(recordings_dir.c_str(), 0755);
+        std::string app_dir = docs_dir + "/Rebraze";
+        recordings_dir = app_dir + "/Recordings";
+        if (mkdir(app_dir.c_str(), 0755) != 0 && errno != EEXIST) {
+            std::cerr << "[Browser] Failed to create app dir: " << app_dir << " Error: " << strerror(errno) << std::endl;
+        }
+        if (mkdir(recordings_dir.c_str(), 0755) != 0 && errno != EEXIST) {
+            std::cerr << "[Browser] Failed to create recordings dir: " << recordings_dir << " Error: " << strerror(errno) << std::endl;
+        }
       #endif
 
       // Generate filename with meeting ID and timestamp
@@ -705,7 +726,11 @@ bool ClientHandler::OnProcessMessageReceived(
       current_recording_path_ = filename;
 
       recording_file_.open(filename, std::ios::binary);
-      std::cout << "[Browser] Started saving recording to: " << filename << std::endl;
+      if (recording_file_.is_open()) {
+        std::cout << "[Browser] Started saving recording to: " << filename << std::endl;
+      } else {
+        std::cerr << "[Browser] Failed to open recording file: " << filename << " Error: " << strerror(errno) << std::endl;
+      }
     }
 
     if (recording_file_.is_open()) {

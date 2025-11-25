@@ -133,6 +133,13 @@ const Workspace: React.FC<WorkspaceProps> = ({
     }
   };
 
+  const handleSetExplorerMode = (mode: 'sidebar' | 'maximized') => {
+    if (explorerMode === 'maximized' && mode === 'sidebar') {
+       setExplorerOpen(false);
+    }
+    setExplorerMode(mode);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-[#FDFBF7]">
       <WorkspaceHeader
@@ -141,7 +148,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
         isExplorerOpen={isExplorerOpen}
         setExplorerOpen={setExplorerOpen}
         explorerMode={explorerMode}
-        setExplorerMode={setExplorerMode}
+        setExplorerMode={handleSetExplorerMode}
         viewingFile={viewingFile}
         setViewingFile={setViewingFile}
         isChatOpen={isChatOpen}
@@ -149,39 +156,75 @@ const Workspace: React.FC<WorkspaceProps> = ({
       />
 
       <div className="flex-1 flex overflow-hidden relative">
-        <FileSystemExplorer
-          project={project}
-          isOpen={isExplorerOpen}
-          setIsOpen={setExplorerOpen}
-          mode={explorerMode}
-          setMode={setExplorerMode}
-          selectedFileIds={selectedFileIds}
-          toggleFileSelection={toggleFileSelection}
-          viewingFile={viewingFile}
-          setViewingFile={setViewingFile}
-          onMoveItem={handleMoveItem}
-          onDeleteItem={handleDeleteItem}
-          onRenameItem={handleRenameItem}
-        />
-
-        {(explorerMode === 'sidebar' || isChatOpen) && (
-          <main className="flex-1 flex flex-col md:flex-row relative bg-[#FDFBF7] overflow-hidden">
-            {explorerMode === 'sidebar' && (
-              <FileViewer
+        {explorerMode === 'maximized' ? (
+           <>
+              <div className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isChatOpen ? 'mr-[420px]' : 'mr-0'}`}>
+                 <FileSystemExplorer
+                   project={project}
+                   isOpen={true}
+                   setIsOpen={setExplorerOpen}
+                   mode="maximized"
+                   setMode={handleSetExplorerMode}
+                   selectedFileIds={selectedFileIds}
+                   toggleFileSelection={toggleFileSelection}
+                   viewingFile={viewingFile}
+                   setViewingFile={setViewingFile}
+                   onMoveItem={handleMoveItem}
+                   onDeleteItem={handleDeleteItem}
+                   onRenameItem={handleRenameItem}
+                 />
+              </div>
+              {isChatOpen && (
+                 <div className="fixed top-16 right-0 bottom-0 w-[420px] bg-[#FDFBF7] border-l border-gray-100 shadow-2xl z-30 animate-in slide-in-from-right duration-500">
+                     <ChatInterface
+                        messages={messages}
+                        handleSend={handleSend}
+                        selectedFileCount={selectedFileIds.size}
+                        isAiTyping={isAiTyping}
+                        onClose={() => setIsChatOpen(false)}
+                     />
+                 </div>
+              )}
+           </>
+        ) : (
+           <>
+              <FileSystemExplorer
+                project={project}
+                isOpen={isExplorerOpen}
+                setIsOpen={setExplorerOpen}
+                mode="sidebar"
+                setMode={handleSetExplorerMode}
+                selectedFileIds={selectedFileIds}
+                toggleFileSelection={toggleFileSelection}
                 viewingFile={viewingFile}
-                isChatOpen={isChatOpen}
+                setViewingFile={setViewingFile}
+                onMoveItem={handleMoveItem}
+                onDeleteItem={handleDeleteItem}
+                onRenameItem={handleRenameItem}
               />
-            )}
-            {isChatOpen && (
-              <ChatInterface
-                messages={messages}
-                handleSend={handleSend}
-                selectedFileCount={selectedFileIds.size}
-                isAiTyping={isAiTyping}
-                onClose={() => setIsChatOpen(false)}
-              />
-            )}
-          </main>
+
+              {(viewingFile || isChatOpen) && (
+                <main className="flex-1 flex flex-col md:flex-row relative bg-[#FDFBF7] overflow-hidden">
+                  {viewingFile && (
+                    <FileViewer
+                      viewingFile={viewingFile}
+                      isChatOpen={isChatOpen}
+                    />
+                  )}
+                  {isChatOpen && (
+                     <div className={`border-l border-gray-200 bg-white h-full flex flex-col ${viewingFile ? 'w-full md:w-[400px]' : 'flex-1'}`}>
+                        <ChatInterface
+                          messages={messages}
+                          handleSend={handleSend}
+                          selectedFileCount={selectedFileIds.size}
+                          isAiTyping={isAiTyping}
+                          onClose={() => setIsChatOpen(false)}
+                        />
+                     </div>
+                  )}
+                </main>
+              )}
+           </>
         )}
       </div>
     </div>

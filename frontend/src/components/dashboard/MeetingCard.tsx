@@ -47,7 +47,8 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onOpenMeeting }) => 
   return (
     <div
       className="group relative bg-white rounded-[28px] overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full flex flex-col shadow-sm hover:shadow-md border border-gray-100"
-      onClick={handleCardClick}
+      onDoubleClick={handleCardClick}
+      onContextMenu={(e) => e.preventDefault()}
     >
 
       {/* Thumbnail Section */}

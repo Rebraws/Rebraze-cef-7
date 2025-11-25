@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <cstdlib>
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -36,5 +37,21 @@ std::string GetExecutableDirectory() {
   return "";
 #else
   return "";
+#endif
+}
+
+std::string GetDocumentsDirectory() {
+#if defined(_WIN32)
+  const char* user_profile = getenv("USERPROFILE");
+  if (user_profile) {
+    return std::string(user_profile) + "\\Documents";
+  }
+  return "C:\\";
+#else
+  const char* home = getenv("HOME");
+  if (home) {
+    return std::string(home) + "/Documents";
+  }
+  return "/tmp";
 #endif
 }

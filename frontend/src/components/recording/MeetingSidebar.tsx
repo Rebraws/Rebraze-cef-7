@@ -49,8 +49,9 @@ const MeetingSidebar: React.FC<MeetingSidebarProps> = ({
   };
 
   return (
-    <aside 
+    <aside
       className={`bg-[#FAF9F6] border-r border-gray-200 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-10 ${isOpen ? 'w-80 translate-x-0 opacity-100' : 'w-0 -translate-x-10 opacity-0 overflow-hidden'}`}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div className="p-5 pb-2">
         <div className="relative">
@@ -79,9 +80,10 @@ const MeetingSidebar: React.FC<MeetingSidebarProps> = ({
             <div
               key={meeting.id}
               onClick={() => onSelectMeeting(meeting)}
+              onContextMenu={(e) => e.preventDefault()}
               className={`group flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border ${
-                isActive 
-                  ? 'bg-white border-orange-200 shadow-sm' 
+                isActive
+                  ? 'bg-white border-orange-200 shadow-sm'
                   : 'bg-transparent border-transparent hover:bg-gray-100'
               }`}
             >

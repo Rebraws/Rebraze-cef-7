@@ -21,7 +21,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
   const [isRecording, setIsRecording] = useState(false);
 
   // AI Chat state
-  const [isAiOpen, setIsAiOpen] = useState(true);
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
