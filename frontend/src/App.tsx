@@ -4,6 +4,7 @@ import { ViewState, Project, Meeting as MeetingType } from './types';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Meeting from './pages/Meeting';
+import RecordingViewer from './pages/RecordingViewer';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import MeetingModal from './components/common/MeetingModal';
@@ -14,12 +15,13 @@ import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'workspace' | 'meeting'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'workspace' | 'meeting' | 'recording'>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isAuthCallback, setIsAuthCallback] = useState(false);
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [currentMeeting, setCurrentMeeting] = useState<MeetingType | null>(null);
+  const [viewingMeeting, setViewingMeeting] = useState<MeetingType | null>(null);
 
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -76,6 +78,16 @@ const AppContent: React.FC = () => {
     setCurrentMeeting(null);
   };
 
+  const handleOpenMeeting = (meeting: MeetingType) => {
+    setViewingMeeting(meeting);
+    setCurrentView('recording');
+  };
+
+  const handleBackFromRecording = () => {
+    setCurrentView('dashboard');
+    setViewingMeeting(null);
+  };
+
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
@@ -108,6 +120,7 @@ const AppContent: React.FC = () => {
           isAiOpen={isAiOpen}
           setIsAiOpen={setIsAiOpen}
           onJoinMeetingClick={handleJoinMeetingClick}
+          onOpenMeeting={handleOpenMeeting}
         />
       )}
       {currentView === 'workspace' && activeProject && (
@@ -122,6 +135,12 @@ const AppContent: React.FC = () => {
         <Meeting
           meeting={currentMeeting}
           onLeaveMeeting={handleLeaveMeeting}
+        />
+      )}
+      {currentView === 'recording' && viewingMeeting && (
+        <RecordingViewer
+          meeting={viewingMeeting}
+          onBack={handleBackFromRecording}
         />
       )}
 

@@ -1,13 +1,13 @@
 
-import React, { useState } from 'react';
-import { Project } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Project, Meeting } from '../types';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import Toolbar from '../components/dashboard/Toolbar';
 import ProjectsGrid from '../components/dashboard/ProjectsGrid';
 import RecentFolders from '../components/dashboard/RecentFolders';
 import GlobalAiPanel from '../components/dashboard/GlobalAiPanel';
 import MeetingsView from '../components/dashboard/MeetingsView';
-import { mockMeetings } from '../mocks/meetings';
+import { meetingService } from '../services/meetingService';
 
 interface DashboardProps {
   projects: Project[];
@@ -15,6 +15,7 @@ interface DashboardProps {
   isAiOpen: boolean;
   setIsAiOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onJoinMeetingClick?: () => void;
+  onOpenMeeting?: (meeting: Meeting) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -22,9 +23,30 @@ const Dashboard: React.FC<DashboardProps> = ({
   onOpenProject,
   isAiOpen,
   setIsAiOpen,
-  onJoinMeetingClick
+  onJoinMeetingClick,
+  onOpenMeeting
 }) => {
   const [activeTab, setActiveTab] = useState('Home');
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+
+  // Load meetings from localStorage
+  useEffect(() => {
+    const loadMeetings = () => {
+      const allMeetings = meetingService.getAllMeetings();
+      // Sort by start time, most recent first
+      const sortedMeetings = allMeetings.sort((a, b) =>
+        b.startTime.getTime() - a.startTime.getTime()
+      );
+      setMeetings(sortedMeetings);
+    };
+
+    loadMeetings();
+
+    // Reload when tab changes to Meetings to catch any updates
+    if (activeTab === 'Meetings') {
+      loadMeetings();
+    }
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-gray-900 font-sans flex flex-col overflow-hidden selection:bg-orange-100 selection:text-orange-900">
@@ -43,7 +65,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Toolbar />
             
             {activeTab === 'Meetings' ? (
-              <MeetingsView meetings={mockMeetings} />
+              <MeetingsView meetings={meetings} onOpenMeeting={onOpenMeeting} />
             ) : (
               <>
                 <ProjectsGrid projects={projects} onOpenProject={onOpenProject} />

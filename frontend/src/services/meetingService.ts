@@ -97,6 +97,17 @@ class MeetingService {
       meetings[meetingIndex].status = 'ended';
       meetings[meetingIndex].endTime = new Date();
 
+      // Calculate and store duration
+      const diff = meetings[meetingIndex].endTime.getTime() - meetings[meetingIndex].startTime.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (hours > 0) {
+        meetings[meetingIndex].duration = `${hours}h ${minutes}m`;
+      } else {
+        meetings[meetingIndex].duration = `${minutes}m`;
+      }
+
       // Mark all active participants as left
       meetings[meetingIndex].participants.forEach(participant => {
         if (participant.isActive) {
@@ -193,6 +204,20 @@ class MeetingService {
       return [];
     }
     return meeting.participants.filter(p => p.isActive);
+  }
+
+  /**
+   * Save recording URL to a meeting
+   */
+  saveRecordingUrl(meetingId: string, recordingUrl: string): void {
+    const meetings = this.getAllMeetings();
+    const meetingIndex = meetings.findIndex(m => m.id === meetingId);
+
+    if (meetingIndex !== -1) {
+      meetings[meetingIndex].recordingUrl = recordingUrl;
+      this.saveMeetings(meetings);
+      console.log('[MeetingService] Saved recording URL for meeting:', meetingId, recordingUrl);
+    }
   }
 
   /**

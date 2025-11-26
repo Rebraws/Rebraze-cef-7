@@ -4,9 +4,10 @@ import { Meeting } from '../../types';
 
 interface MeetingCardProps {
   meeting: Meeting;
+  onOpenMeeting?: (meeting: Meeting) => void;
 }
 
-const MeetingCard: React.FC<MeetingCardProps> = ({ meeting }) => {
+const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onOpenMeeting }) => {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -37,9 +38,18 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting }) => {
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
   };
 
+  const handleCardClick = () => {
+    if (onOpenMeeting) {
+      onOpenMeeting(meeting);
+    }
+  };
+
   return (
-    <div className="group relative bg-white rounded-[28px] overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full flex flex-col shadow-sm hover:shadow-md border border-gray-100">
-      
+    <div
+      className="group relative bg-white rounded-[28px] overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full flex flex-col shadow-sm hover:shadow-md border border-gray-100"
+      onClick={handleCardClick}
+    >
+
       {/* Thumbnail Section */}
       <div className="relative h-40 bg-gray-100">
         {meeting.thumbnailUrl ? (
@@ -49,7 +59,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting }) => {
             <Video size={40} />
           </div>
         )}
-        
+
         <div className="absolute top-4 left-4">
             <div className={`${getPlatformIcon()} text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm`}>
                 {meeting.platform}
@@ -82,11 +92,21 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting }) => {
               <MoreHorizontal size={18} />
             </button>
             {isMenuOpen && (
-              <div 
+              <div
                 onClick={(e) => e.stopPropagation()}
                 className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-20 py-2 animate-in fade-in zoom-in-95"
               >
-                <a href={meeting.recordingUrl} download className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Download size={16} /> Download</a>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenMeeting) {
+                      onOpenMeeting(meeting);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Play size={16} /> View Meeting
+                </button>
                 <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Share2 size={16} /> Share</a>
                 <div className="h-px bg-gray-100 my-1"></div>
                 <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={16} /> Delete</a>

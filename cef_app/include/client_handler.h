@@ -2,10 +2,13 @@
 #define CEF_APP_CLIENT_HANDLER_H_
 
 #include "include/cef_client.h"
+#include "include/cef_devtools_message_observer.h"
+#include "include/cef_registration.h"
 #include "oauth_server.h"
 
 #include <list>
 #include <memory>
+#include <fstream>
 
 // Client handler for browser-level callbacks
 class ClientHandler : public CefClient,
@@ -14,7 +17,8 @@ class ClientHandler : public CefClient,
                       public CefLifeSpanHandler,
                       public CefLoadHandler,
                       public CefRequestHandler,
-                      public CefResourceRequestHandler {
+                      public CefResourceRequestHandler,
+                      public CefDevToolsMessageObserver {
  public:
   // Layout constants for the dual-browser meeting interface
   static const int kTopBarHeight = 64;
@@ -51,6 +55,23 @@ class ClientHandler : public CefClient,
     return this;
   }
 
+  // CefDevToolsMessageObserver methods
+  virtual bool OnDevToolsMessage(CefRefPtr<CefBrowser> browser,
+                                 const void* message,
+                                 size_t message_size) override;
+  virtual void OnDevToolsMethodResult(CefRefPtr<CefBrowser> browser,
+                                      int message_id,
+                                      bool success,
+                                      const void* result,
+                                      size_t result_size) override;
+  virtual void OnDevToolsEvent(CefRefPtr<CefBrowser> browser,
+                               const CefString& method,
+                               const void* params,
+                               size_t params_size) override;
+  virtual void OnDevToolsAgentAttached(CefRefPtr<CefBrowser> browser) override;
+  virtual void OnDevToolsAgentDetached(CefRefPtr<CefBrowser> browser) override;
+
+  // CefClient methods
   // Handle process messages
   virtual bool OnProcessMessageReceived(
       CefRefPtr<CefBrowser> browser,
@@ -200,6 +221,15 @@ class ClientHandler : public CefClient,
   int last_meeting_y_ = 0;
   int last_meeting_width_ = 0;
   int last_meeting_height_ = 0;
+
+  // Recording file
+  std::ofstream recording_file_;
+  std::string current_recording_path_;
+  std::string current_meeting_id_;
+
+  // DevTools observer registration
+  CefRefPtr<CefRegistration> devtools_registration_;
+  int next_devtools_id_ = 1;
 
   // Include the default reference counting implementation
   IMPLEMENT_REFCOUNTING(ClientHandler);

@@ -197,6 +197,44 @@ bool MessageHandler::Execute(const CefString& name,
     }
   }
 
+  if (name == "startRecording") {
+    if (arguments.size() == 1 && arguments[0]->IsString()) {
+      std::string meeting_id = arguments[0]->GetStringValue().ToString();
+      std::cout << "[Renderer] Start recording called for meeting: " << meeting_id << std::endl;
+
+      CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("start_recording");
+      message->GetArgumentList()->SetString(0, meeting_id);
+
+      CefV8Context::GetCurrentContext()->GetBrowser()->GetMainFrame()->SendProcessMessage(PID_BROWSER, message);
+      retval = CefV8Value::CreateBool(true);
+      return true;
+    }
+  }
+
+  if (name == "stopRecording") {
+    std::cout << "[Renderer] Stop recording called" << std::endl;
+    CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("stop_recording");
+    CefV8Context::GetCurrentContext()->GetBrowser()->GetMainFrame()->SendProcessMessage(PID_BROWSER, message);
+    retval = CefV8Value::CreateBool(true);
+    return true;
+  }
+
+  if (name == "saveRecording") {
+    if (arguments.size() == 2 && arguments[0]->IsString() && arguments[1]->IsBool()) {
+      std::string data = arguments[0]->GetStringValue();
+      bool is_last = arguments[1]->GetBoolValue();
+      
+      CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("save_recording_chunk");
+      CefRefPtr<CefListValue> args = message->GetArgumentList();
+      args->SetString(0, data);
+      args->SetBool(1, is_last);
+      
+      CefV8Context::GetCurrentContext()->GetBrowser()->GetMainFrame()->SendProcessMessage(PID_BROWSER, message);
+      retval = CefV8Value::CreateBool(true);
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -281,6 +319,10 @@ void RenderProcessHandler::OnContextCreated(CefRefPtr<CefBrowser> browser,
   rebraze_auth->SetValue("sendParticipantList", send_participant_list_func,
                         V8_PROPERTY_ATTRIBUTE_NONE);
 
+  rebraze_auth->SetValue("startRecording", CefV8Value::CreateFunction("startRecording", handler), V8_PROPERTY_ATTRIBUTE_NONE);
+  rebraze_auth->SetValue("stopRecording", CefV8Value::CreateFunction("stopRecording", handler), V8_PROPERTY_ATTRIBUTE_NONE);
+  rebraze_auth->SetValue("saveRecording", CefV8Value::CreateFunction("saveRecording", handler), V8_PROPERTY_ATTRIBUTE_NONE);
+
   // Attach to global object
   global->SetValue("rebrazeAuth", rebraze_auth, V8_PROPERTY_ATTRIBUTE_NONE);
 
@@ -295,6 +337,40 @@ bool RenderProcessHandler::OnProcessMessageReceived(
     CefRefPtr<CefProcessMessage> message) {
 
   const std::string& message_name = message->GetName();
+
+  if (message_name == "screencast_frame") {
+    CefRefPtr<CefListValue> args = message->GetArgumentList();
+    std::string data = args->GetString(0);
+    std::string js = "if (window.onScreencastFrame) window.onScreencastFrame('" + data + "');";
+    frame->ExecuteJavaScript(js, frame->GetURL(), 0);
+    return true;
+  }
+
+  if (message_name == "recording_saved") {
+    CefRefPtr<CefListValue> args = message->GetArgumentList();
+    std::string meeting_id = args->GetString(0);
+    std::string recording_path = args->GetString(1);
+
+    std::cout << "[Renderer] Recording saved - Meeting: " << meeting_id << ", Path: " << recording_path << std::endl;
+
+    // Escape strings for JavaScript
+    auto escapeJS = [](const std::string& str) {
+      std::string result;
+      for (char c : str) {
+        if (c == '\\') result += "\\\\";
+        else if (c == '\'') result += "\\'";
+        else if (c == '\n') result += "\\n";
+        else if (c == '\r') result += "\\r";
+        else result += c;
+      }
+      return result;
+    };
+
+    std::string js = "if (window.onRecordingSaved) window.onRecordingSaved('" +
+                     escapeJS(meeting_id) + "', '" + escapeJS(recording_path) + "');";
+    frame->ExecuteJavaScript(js, frame->GetURL(), 0);
+    return true;
+  }
 
   if (message_name == "auth_token_received") {
     // Token received from OAuth callback

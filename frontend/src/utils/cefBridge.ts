@@ -16,10 +16,15 @@ declare global {
       getMeetingPageInfo: () => boolean;
       getMeetingParticipants: () => boolean;
       sendParticipantList: (jsonList: string) => boolean;
+      startRecording: (meetingId: string) => boolean;
+      stopRecording: () => boolean;
+      saveRecording: (data: string, isLast: boolean) => boolean;
     };
     onAuthTokenReceived?: (token: string) => void;
     onMeetingPageInfo?: (info: MeetingPageInfo) => void;
     onMeetingParticipants?: (participants: string[]) => void;
+    onScreencastFrame?: (data: string) => void;
+    onRecordingSaved?: (meetingId: string, recordingPath: string) => void;
   }
 }
 
@@ -103,5 +108,64 @@ export const getMeetingParticipants = (): boolean => {
 export const setMeetingParticipantsCallback = (callback: (participants: string[]) => void): void => {
   if (typeof window !== 'undefined') {
     window.onMeetingParticipants = callback;
+  }
+};
+
+export const startRecording = (meetingId: string): boolean => {
+  if (isCEF() && window.rebrazeAuth) {
+    console.log('[CEF Bridge] Starting recording for meeting:', meetingId);
+    return window.rebrazeAuth.startRecording(meetingId);
+  }
+  console.warn('[CEF Bridge] Not in CEF environment, cannot start recording');
+  return false;
+};
+
+export const stopRecording = (): boolean => {
+  if (isCEF() && window.rebrazeAuth) {
+    console.log('[CEF Bridge] Stopping recording');
+    return window.rebrazeAuth.stopRecording();
+  }
+  console.warn('[CEF Bridge] Not in CEF environment, cannot stop recording');
+  return false;
+};
+
+export const saveRecording = (blob: Blob): void => {
+  if (isCEF() && window.rebrazeAuth) {
+    console.log('[CEF Bridge] Saving recording, size:', blob.size);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      const chunkSize = 1024 * 512; // 512KB chunks
+      const totalChunks = Math.ceil(base64.length / chunkSize);
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = base64.slice(i * chunkSize, (i + 1) * chunkSize);
+        const isLast = i === totalChunks - 1;
+        window.rebrazeAuth!.saveRecording(chunk, isLast);
+      }
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  console.warn('[CEF Bridge] Not in CEF environment, cannot save recording');
+  
+  // Fallback for web dev: download the file
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'recording.webm';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const setScreencastFrameCallback = (callback: (data: string) => void): void => {
+  if (typeof window !== 'undefined') {
+    window.onScreencastFrame = callback;
+  }
+};
+
+export const setRecordingSavedCallback = (callback: (meetingId: string, recordingPath: string) => void): void => {
+  if (typeof window !== 'undefined') {
+    window.onRecordingSaved = callback;
   }
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Video, Clock, Sparkles, Send, Mic, MicOff, VideoOff, Pause, Play, Circle, Square, X } from 'lucide-react';
 import { Meeting as MeetingType, ChatMessage } from '../types';
 import { meetingService } from '../services/meetingService';
-import { joinMeeting, leaveMeeting, updateMeetingBounds, isCEF, getMeetingPageInfo, setMeetingPageInfoCallback, MeetingPageInfo, getMeetingParticipants, setMeetingParticipantsCallback } from '../utils/cefBridge';
+import { joinMeeting, leaveMeeting, updateMeetingBounds, isCEF, getMeetingPageInfo, setMeetingPageInfoCallback, MeetingPageInfo, getMeetingParticipants, setMeetingParticipantsCallback, startRecording, stopRecording, saveRecording, setScreencastFrameCallback, setRecordingSavedCallback } from '../utils/cefBridge';
 import { generateChatResponse } from '../services/geminiService';
 
 interface MeetingProps {
@@ -44,6 +44,11 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
 
   // Ref to track if we have already initiated leaving the meeting to prevent race conditions
   const meetingLeftRef = useRef(false);
+
+  // Recording refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   const updateBoundsIfNeeded = () => {
     if (meetingLeftRef.current) return;
@@ -108,6 +113,68 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
       setMeetingParticipants(participants);
     });
 
+    setScreencastFrameCallback((data) => {
+      if (!canvasRef.current) return;
+
+      const img = new Image();
+      img.onload = () => {
+        if (!canvasRef.current) return;
+
+        // Set canvas dimensions to match image (first frame only effectively)
+        if (canvasRef.current.width !== img.width || canvasRef.current.height !== img.height) {
+            canvasRef.current.width = img.width;
+            canvasRef.current.height = img.height;
+        }
+
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+        }
+
+        // Start recording on first frame if enabled
+        if (isRecording && !mediaRecorderRef.current) {
+           const stream = canvasRef.current.captureStream(30); // 30 FPS
+           const options = { mimeType: 'video/webm;codecs=vp9' };
+
+           try {
+             mediaRecorderRef.current = new MediaRecorder(stream, MediaRecorder.isTypeSupported(options.mimeType) ? options : undefined);
+           } catch (e) {
+             console.warn('VP9 not supported, falling back to default');
+             mediaRecorderRef.current = new MediaRecorder(stream);
+           }
+
+           mediaRecorderRef.current.ondataavailable = (event) => {
+             if (event.data && event.data.size > 0) {
+               recordedChunksRef.current.push(event.data);
+             }
+           };
+
+           mediaRecorderRef.current.onstop = () => {
+             const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+             saveRecording(blob);
+             recordedChunksRef.current = [];
+             mediaRecorderRef.current = null;
+           };
+
+           mediaRecorderRef.current.start(1000); // Collect chunks every second
+        }
+      };
+      img.src = 'data:image/jpeg;base64,' + data;
+    });
+
+    setRecordingSavedCallback((meetingId, recordingPath) => {
+      console.log('[Meeting] Recording saved:', meetingId, recordingPath);
+      meetingService.saveRecordingUrl(meetingId, recordingPath);
+
+      // Update current meeting state if this is the current meeting
+      if (meetingId === currentMeeting.id) {
+        setCurrentMeeting(prev => ({
+          ...prev,
+          recordingUrl: recordingPath
+        }));
+      }
+    });
+
     // Request page info and sync bounds periodically to keep it updated/visible
     const interval = setInterval(() => {
       if (meetingLeftRef.current) return;
@@ -125,8 +192,27 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
       clearInterval(interval);
       setMeetingPageInfoCallback(() => {});
       setMeetingParticipantsCallback(() => {});
+      setScreencastFrameCallback(() => {});
+      setRecordingSavedCallback(() => {});
     };
-  }, []);
+  }, [isRecording, currentMeeting.id]);
+
+  // Handle recording toggle
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      // Stop
+      stopRecording();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      // Start
+      startRecording(currentMeeting.id);
+      setIsRecording(true);
+      // MediaRecorder will start on first frame
+    }
+  };
 
   // Initialize native meeting view in CEF and handle resizing
   useEffect(() => {
@@ -317,6 +403,9 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
 
   return (
     <div className="flex h-screen bg-[#FDFBF7] overflow-hidden relative">
+      {/* Hidden Canvas for Recording */}
+      <canvas ref={canvasRef} style={{ position: 'absolute', top: -9999, left: -9999, visibility: 'hidden' }} />
+      
       {/* Main Meeting Area */}
       <div className={`flex-1 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isAiOpen ? 'mr-96' : 'mr-0'}`}>
         {/* Meeting Header */}
@@ -369,7 +458,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
 
               {/* Record Button */}
               <button
-                onClick={() => setIsRecording(!isRecording)}
+                onClick={handleToggleRecording}
                 className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all ${isRecording ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {isRecording ? (
@@ -386,6 +475,7 @@ const Meeting: React.FC<MeetingProps> = ({ meeting, onLeaveMeeting }) => {
               </button>
 
               <div className="w-px h-8 bg-gray-200 mx-1"></div>
+
 
               {/* AI Toggle Button (only visible when closed, or always valid toggle) */}
                <button

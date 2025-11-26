@@ -15,10 +15,13 @@
 #if defined(OS_WIN)
 #include <windows.h>
 #include <shellapi.h>
+#include <direct.h>
 #elif defined(OS_MACOSX)
 #include <cstdlib>
+#include <sys/stat.h>
 #elif defined(OS_LINUX)
 #include <cstdlib>
+#include <sys/stat.h>
 #include <X11/Xlib.h>
 #endif
 
@@ -649,8 +652,132 @@ bool ClientHandler::OnProcessMessageReceived(
     return true;
   }
 
+  if (message_name == "start_recording") {
+    CefRefPtr<CefListValue> args = message->GetArgumentList();
+    std::string meeting_id = args->GetString(0);
+    current_meeting_id_ = meeting_id;
+
+    std::cout << "[Browser] Start recording request for meeting: " << meeting_id << std::endl;
+    if (content_browser_) {
+      devtools_registration_ = content_browser_->GetHost()->AddDevToolsMessageObserver(this);
+
+      CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+      params->SetString("format", "jpeg");
+      params->SetInt("quality", 80);
+      // params->SetInt("everyNthFrame", 1);
+
+      content_browser_->GetHost()->ExecuteDevToolsMethod(0, "Page.startScreencast", params);
+    }
+    return true;
+  }
+
+  if (message_name == "stop_recording") {
+    std::cout << "[Browser] Stop recording request" << std::endl;
+    if (content_browser_) {
+      content_browser_->GetHost()->ExecuteDevToolsMethod(0, "Page.stopScreencast", nullptr);
+
+      // Remove observer by resetting the registration
+      devtools_registration_ = nullptr;
+    }
+    return true;
+  }
+
+  if (message_name == "save_recording_chunk") {
+    CefRefPtr<CefListValue> args = message->GetArgumentList();
+    std::string data_base64 = args->GetString(0);
+    bool is_last = args->GetBool(1);
+
+    if (!recording_file_.is_open()) {
+      // Create recordings directory
+      std::string recordings_dir = "recordings";
+      #ifdef _WIN32
+        _mkdir(recordings_dir.c_str());
+      #else
+        mkdir(recordings_dir.c_str(), 0755);
+      #endif
+
+      // Generate filename with meeting ID and timestamp
+      std::time_t t = std::time(nullptr);
+      char timestamp[50];
+      std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", std::localtime(&t));
+
+      std::string filename = recordings_dir + "/meeting_" + current_meeting_id_ + "_" + timestamp + ".webm";
+      current_recording_path_ = filename;
+
+      recording_file_.open(filename, std::ios::binary);
+      std::cout << "[Browser] Started saving recording to: " << filename << std::endl;
+    }
+
+    if (recording_file_.is_open()) {
+      CefRefPtr<CefBinaryValue> data = CefBase64Decode(data_base64);
+      if (data) {
+        size_t size = data->GetSize();
+        char* buffer = new char[size];
+        data->GetData(buffer, size, 0);
+        recording_file_.write(buffer, size);
+        delete[] buffer;
+      }
+    }
+
+    if (is_last) {
+      if (recording_file_.is_open()) {
+        recording_file_.close();
+        std::cout << "[Browser] Finished saving recording to: " << current_recording_path_ << std::endl;
+
+        // Send recording path back to UI browser
+        if (ui_browser_) {
+          CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("recording_saved");
+          msg->GetArgumentList()->SetString(0, current_meeting_id_);
+          msg->GetArgumentList()->SetString(1, current_recording_path_);
+          ui_browser_->GetMainFrame()->SendProcessMessage(PID_RENDERER, msg);
+        }
+
+        // Clear recording state
+        current_recording_path_.clear();
+        current_meeting_id_.clear();
+      }
+    }
+    return true;
+  }
+
   return false;
 }
+
+bool ClientHandler::OnDevToolsMessage(CefRefPtr<CefBrowser> browser, const void* message, size_t message_size) {
+  return false; // Default handling
+}
+
+void ClientHandler::OnDevToolsMethodResult(CefRefPtr<CefBrowser> browser, int message_id, bool success, const void* result, size_t result_size) {
+  // Optional: handle result
+}
+
+void ClientHandler::OnDevToolsEvent(CefRefPtr<CefBrowser> browser, const CefString& method, const void* params, size_t params_size) {
+  if (method == "Page.screencastFrame") {
+    CefRefPtr<CefValue> value = CefParseJSON(CefString(static_cast<const char*>(params), params_size), JSON_PARSER_RFC);
+    if (value && value->IsValid() && value->GetType() == VTYPE_DICTIONARY) {
+      CefRefPtr<CefDictionaryValue> dict = value->GetDictionary();
+      if (dict->HasKey("data")) {
+        std::string data = dict->GetString("data");
+        if (ui_browser_) {
+           CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("screencast_frame");
+           msg->GetArgumentList()->SetString(0, data);
+           ui_browser_->GetMainFrame()->SendProcessMessage(PID_RENDERER, msg);
+        }
+      }
+      
+      if (dict->HasKey("sessionId")) {
+         int sessionId = dict->GetInt("sessionId");
+         CefRefPtr<CefDictionaryValue> ackParams = CefDictionaryValue::Create();
+         ackParams->SetInt("sessionId", sessionId);
+
+         browser->GetHost()->ExecuteDevToolsMethod(0, "Page.screencastFrameAck", ackParams);
+      }
+    }
+  }
+}
+
+void ClientHandler::OnDevToolsAgentAttached(CefRefPtr<CefBrowser> browser) {}
+void ClientHandler::OnDevToolsAgentDetached(CefRefPtr<CefBrowser> browser) {}
 
 void ClientHandler::OpenSystemBrowser(const std::string& url) {
   std::cout << "[Browser] OpenSystemBrowser called for URL: " << url << std::endl;
